@@ -5,9 +5,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"hotel-booking/config"
-	"hotel-booking/controllers"
 	"hotel-booking/database"
 	"hotel-booking/routes"
+	"hotel-booking/suppliers"
 	"log"
 )
 
@@ -40,12 +40,74 @@ func initDatabaseTables() error {
 	db := database.GetDB()
 	cfg := config.GetConfig()
 	
-	var createSuppliersSQL string
-	var createSupplierHotelsSQL string
-	var createSupplierRoomsSQL string
-	
 	if cfg.DBType == "sqlite" {
-		createSuppliersSQL = `
+		createUsersSQL := `
+			CREATE TABLE IF NOT EXISTS users (
+				id INTEGER PRIMARY KEY AUTOINCREMENT,
+				username TEXT NOT NULL UNIQUE,
+				password TEXT NOT NULL,
+				email TEXT,
+				phone TEXT,
+				created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+				updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+			)
+		`
+		
+		createHotelsSQL := `
+			CREATE TABLE IF NOT EXISTS hotels (
+				id INTEGER PRIMARY KEY AUTOINCREMENT,
+				name TEXT NOT NULL,
+				address TEXT NOT NULL,
+				city TEXT NOT NULL,
+				description TEXT,
+				rating REAL DEFAULT 0.0,
+				image_url TEXT,
+				price_range TEXT,
+				supplier_id INTEGER DEFAULT 0,
+				created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+				updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+			)
+		`
+		
+		createRoomsSQL := `
+			CREATE TABLE IF NOT EXISTS rooms (
+				id INTEGER PRIMARY KEY AUTOINCREMENT,
+				hotel_id INTEGER NOT NULL,
+				name TEXT NOT NULL,
+				description TEXT,
+				price REAL NOT NULL,
+				capacity INTEGER NOT NULL,
+				area INTEGER,
+				bed_type TEXT,
+				amenities TEXT,
+				image_url TEXT,
+				total_count INTEGER NOT NULL DEFAULT 1,
+				available_count INTEGER NOT NULL DEFAULT 1,
+				supplier_id INTEGER DEFAULT 0,
+				created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+				updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+			)
+		`
+		
+		createOrdersSQL := `
+			CREATE TABLE IF NOT EXISTS orders (
+				id INTEGER PRIMARY KEY AUTOINCREMENT,
+				order_no TEXT NOT NULL UNIQUE,
+				user_id INTEGER NOT NULL,
+				hotel_id INTEGER NOT NULL,
+				room_id INTEGER NOT NULL,
+				check_in DATE NOT NULL,
+				check_out DATE NOT NULL,
+				guest_name TEXT NOT NULL,
+				guest_phone TEXT NOT NULL,
+				total_amount REAL NOT NULL,
+				status TEXT DEFAULT 'pending',
+				created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+				updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+			)
+		`
+		
+		createSuppliersSQL := `
 			CREATE TABLE IF NOT EXISTS suppliers (
 				id INTEGER PRIMARY KEY AUTOINCREMENT,
 				name TEXT NOT NULL,
@@ -59,7 +121,7 @@ func initDatabaseTables() error {
 			)
 		`
 		
-		createSupplierHotelsSQL = `
+		createSupplierHotelsSQL := `
 			CREATE TABLE IF NOT EXISTS supplier_hotels (
 				id INTEGER PRIMARY KEY AUTOINCREMENT,
 				supplier_id INTEGER NOT NULL,
@@ -79,7 +141,7 @@ func initDatabaseTables() error {
 			)
 		`
 		
-		createSupplierRoomsSQL = `
+		createSupplierRoomsSQL := `
 			CREATE TABLE IF NOT EXISTS supplier_rooms (
 				id INTEGER PRIMARY KEY AUTOINCREMENT,
 				supplier_id INTEGER NOT NULL,
@@ -103,8 +165,16 @@ func initDatabaseTables() error {
 				UNIQUE(supplier_id, supplier_hotel_id, supplier_room_id)
 			)
 		`
+		
+		db.Exec(createUsersSQL)
+		db.Exec(createHotelsSQL)
+		db.Exec(createRoomsSQL)
+		db.Exec(createOrdersSQL)
+		db.Exec(createSuppliersSQL)
+		db.Exec(createSupplierHotelsSQL)
+		db.Exec(createSupplierRoomsSQL)
 	} else {
-		createSuppliersSQL = `
+		createSuppliersSQL := `
 			CREATE TABLE IF NOT EXISTS suppliers (
 				id INT AUTO_INCREMENT PRIMARY KEY,
 				name VARCHAR(100) NOT NULL,
@@ -118,7 +188,7 @@ func initDatabaseTables() error {
 			) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
 		`
 		
-		createSupplierHotelsSQL = `
+		createSupplierHotelsSQL := `
 			CREATE TABLE IF NOT EXISTS supplier_hotels (
 				id INT AUTO_INCREMENT PRIMARY KEY,
 				supplier_id INT NOT NULL,
@@ -138,7 +208,7 @@ func initDatabaseTables() error {
 			) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
 		`
 		
-		createSupplierRoomsSQL = `
+		createSupplierRoomsSQL := `
 			CREATE TABLE IF NOT EXISTS supplier_rooms (
 				id INT AUTO_INCREMENT PRIMARY KEY,
 				supplier_id INT NOT NULL,
@@ -162,41 +232,134 @@ func initDatabaseTables() error {
 				UNIQUE KEY uk_supplier_room (supplier_id, supplier_hotel_id, supplier_room_id)
 			) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
 		`
+		
+		db.Exec(createSuppliersSQL)
+		db.Exec(createSupplierHotelsSQL)
+		db.Exec(createSupplierRoomsSQL)
 	}
 	
-	_, err := db.Exec(createSuppliersSQL)
-	if err != nil {
-		return err
-	}
+	return nil
+}
+
+func initSupplierRecords() error {
+	db := database.GetDB()
+	adapters := suppliers.GetAllAdapters()
 	
-	_, err = db.Exec(createSupplierHotelsSQL)
-	if err != nil {
-		return err
-	}
-	
-	_, err = db.Exec(createSupplierRoomsSQL)
-	if err != nil {
-		return err
-	}
-	
-	if !columnExists(db, "hotels", "supplier_id") {
-		_, err = db.Exec("ALTER TABLE hotels ADD COLUMN supplier_id INTEGER DEFAULT 0")
+	for _, adapter := range adapters {
+		var count int
+		err := db.QueryRow("SELECT COUNT(*) FROM suppliers WHERE code = ?", adapter.GetCode()).Scan(&count)
 		if err != nil {
-			log.Printf("添加列 supplier_id 到 hotels 表失败: %v", err)
+			log.Printf("检查供应商 %s 失败: %v", adapter.GetCode(), err)
+			continue
 		}
-	}
-	
-	if !columnExists(db, "rooms", "supplier_id") {
-		_, err = db.Exec("ALTER TABLE rooms ADD COLUMN supplier_id INTEGER DEFAULT 0")
-		if err != nil {
-			log.Printf("添加列 supplier_id 到 rooms 表失败: %v", err)
+		
+		if count == 0 {
+			_, err = db.Exec(`
+				INSERT INTO suppliers (name, code, description, api_url, status)
+				VALUES (?, ?, ?, ?, ?)`,
+				adapter.GetName(), adapter.GetCode(), adapter.GetDescription(),
+				adapter.GetAPIURL(), "active")
+			if err != nil {
+				log.Printf("初始化供应商 %s 失败: %v", adapter.GetName(), err)
+			} else {
+				log.Printf("已注册供应商: %s", adapter.GetName())
+			}
 		}
 	}
 	
 	return nil
 }
 
-func autoPullSupplierData() {
+func pullAndSyncSupplier(adapter suppliers.SupplierAdapter) (int, error) {
+	db := database.GetDB()
+	
+	var supplierID int
+	err := db.QueryRow("SELECT id FROM suppliers WHERE code = ?", adapter.GetCode()).Scan(&supplierID)
+	if err != nil {
+		return 0, fmt.Errorf("获取供应商ID失败: %v", err)
+	}
+	
+	hotels, err := adapter.FetchHotels()
+	if err != nil {
+		return 0, err
+	}
+	
+	pulledCount := 0
+	
+	for _, hotelData := range hotels {
+		var existingID int
+		err := db.QueryRow(`
+			SELECT id FROM supplier_hotels WHERE supplier_id = ? AND supplier_hotel_id = ?`,
+			supplierID, hotelData.SupplierHotelID).Scan(&existingID)
+		
+		rawData, _ := json.Marshal(hotelData)
+		
+		if err == sql.ErrNoRows {
+			tx, err := db.Begin()
+			if err != nil {
+				continue
+			}
+			
+			hotelResult, err := tx.Exec(`
+				INSERT INTO hotels (name, address, city, description, rating, image_url, price_range, supplier_id)
+				VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+				hotelData.Name, hotelData.Address, hotelData.City, hotelData.Description,
+				hotelData.Rating, hotelData.ImageURL, hotelData.PriceRange, supplierID)
+			if err != nil {
+				tx.Rollback()
+				continue
+			}
+			
+			localHotelID, _ := hotelResult.LastInsertId()
+			
+			_, err = tx.Exec(`
+				INSERT INTO supplier_hotels (supplier_id, supplier_hotel_id, local_hotel_id, hotel_name, 
+				city, address, rating, image_url, price_range, raw_data, status)
+				VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+				supplierID, hotelData.SupplierHotelID, localHotelID, hotelData.Name,
+				hotelData.City, hotelData.Address, hotelData.Rating, hotelData.ImageURL,
+				hotelData.PriceRange, string(rawData), "synced")
+			if err != nil {
+				tx.Rollback()
+				continue
+			}
+			
+			for _, roomData := range hotelData.Rooms {
+				roomResult, err := tx.Exec(`
+					INSERT INTO rooms (hotel_id, name, description, price, capacity, area, bed_type, 
+					amenities, image_url, total_count, available_count, supplier_id)
+					VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+					localHotelID, roomData.Name, roomData.Description, roomData.Price,
+					roomData.Capacity, roomData.Area, roomData.BedType, roomData.Amenities,
+					roomData.ImageURL, roomData.TotalCount, roomData.AvailableCount, supplierID)
+				if err != nil {
+					continue
+				}
+				
+				localRoomID, _ := roomResult.LastInsertId()
+				
+				roomRawData, _ := json.Marshal(roomData)
+				tx.Exec(`
+					INSERT INTO supplier_rooms (supplier_id, supplier_hotel_id, supplier_room_id, 
+					local_room_id, room_name, description, price, capacity, area, bed_type, 
+					amenities, image_url, total_count, available_count, raw_data, status)
+					VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+					supplierID, hotelData.SupplierHotelID, roomData.SupplierRoomID,
+					localRoomID, roomData.Name, roomData.Description, roomData.Price,
+					roomData.Capacity, roomData.Area, roomData.BedType, roomData.Amenities,
+					roomData.ImageURL, roomData.TotalCount, roomData.AvailableCount,
+					string(roomRawData), "synced")
+			}
+			
+			tx.Commit()
+			pulledCount++
+		}
+	}
+	
+	return pulledCount, nil
+}
+
+func autoPullAllSuppliers() {
 	db := database.GetDB()
 	
 	var count int
@@ -207,95 +370,31 @@ func autoPullSupplierData() {
 	}
 	
 	if count == 0 {
-		log.Println("检测到没有供应商数据，开始自动拉取华住酒店数据...")
+		log.Println("检测到没有供应商数据，开始自动拉取所有供应商数据...")
 		
-		mockHotels := controllers.GetHuazhuMockHotels()
+		adapters := suppliers.GetAllAdapters()
+		totalPulled := 0
 		
-		var supplierID int
-		err = db.QueryRow("SELECT id FROM suppliers WHERE code = ?", "huazhu").Scan(&supplierID)
-		if err != nil {
-			log.Printf("获取供应商ID失败: %v", err)
-			return
-		}
-		
-		pulledCount := 0
-		for _, mockHotel := range mockHotels {
-			var existingID int
-			err := db.QueryRow(`
-				SELECT id FROM supplier_hotels WHERE supplier_id = ? AND supplier_hotel_id = ?`,
-				supplierID, mockHotel.SupplierHotelID).Scan(&existingID)
-			
-			rawData, _ := json.Marshal(mockHotel)
-			
-			if err == sql.ErrNoRows {
-				tx, err := db.Begin()
-				if err != nil {
-					continue
-				}
-				
-				hotelResult, err := tx.Exec(`
-					INSERT INTO hotels (name, address, city, description, rating, image_url, price_range, supplier_id)
-					VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-					mockHotel.Name, mockHotel.Address, mockHotel.City, mockHotel.Description,
-					mockHotel.Rating, mockHotel.ImageURL, mockHotel.PriceRange, supplierID)
-				if err != nil {
-					tx.Rollback()
-					continue
-				}
-				
-				localHotelID, _ := hotelResult.LastInsertId()
-				
-				_, err = tx.Exec(`
-					INSERT INTO supplier_hotels (supplier_id, supplier_hotel_id, local_hotel_id, hotel_name, 
-					city, address, rating, image_url, price_range, raw_data, status)
-					VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-					supplierID, mockHotel.SupplierHotelID, localHotelID, mockHotel.Name,
-					mockHotel.City, mockHotel.Address, mockHotel.Rating, mockHotel.ImageURL,
-					mockHotel.PriceRange, string(rawData), "synced")
-				if err != nil {
-					tx.Rollback()
-					continue
-				}
-				
-				for _, mockRoom := range mockHotel.Rooms {
-					roomResult, err := tx.Exec(`
-						INSERT INTO rooms (hotel_id, name, description, price, capacity, area, bed_type, 
-						amenities, image_url, total_count, available_count, supplier_id)
-						VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-						localHotelID, mockRoom.Name, mockRoom.Description, mockRoom.Price,
-						mockRoom.Capacity, mockRoom.Area, mockRoom.BedType, mockRoom.Amenities,
-						mockRoom.ImageURL, mockRoom.TotalCount, mockRoom.AvailableCount, supplierID)
-					if err != nil {
-						continue
-					}
-					
-					localRoomID, _ := roomResult.LastInsertId()
-					
-					roomRawData, _ := json.Marshal(mockRoom)
-					tx.Exec(`
-						INSERT INTO supplier_rooms (supplier_id, supplier_hotel_id, supplier_room_id, 
-						local_room_id, room_name, description, price, capacity, area, bed_type, 
-						amenities, image_url, total_count, available_count, raw_data, status)
-						VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-						supplierID, mockHotel.SupplierHotelID, mockRoom.SupplierRoomID,
-						localRoomID, mockRoom.Name, mockRoom.Description, mockRoom.Price,
-						mockRoom.Capacity, mockRoom.Area, mockRoom.BedType, mockRoom.Amenities,
-						mockRoom.ImageURL, mockRoom.TotalCount, mockRoom.AvailableCount,
-						string(roomRawData), "synced")
-				}
-				
-				tx.Commit()
-				pulledCount++
+		for _, adapter := range adapters {
+			log.Printf("正在拉取 %s 的数据...", adapter.GetName())
+			pulled, err := pullAndSyncSupplier(adapter)
+			if err != nil {
+				log.Printf("拉取 %s 数据失败: %v", adapter.GetName(), err)
+			} else {
+				log.Printf("拉取 %s 完成，新增 %d 家酒店", adapter.GetName(), pulled)
+				totalPulled += pulled
 			}
 		}
 		
-		log.Printf("自动拉取完成，新增 %d 家酒店数据", pulledCount)
+		log.Printf("所有供应商数据拉取完成，共新增 %d 家酒店", totalPulled)
 	} else {
 		log.Printf("已存在 %d 家供应商酒店数据", count)
 	}
 }
 
 func main() {
+	suppliers.InitSuppliers()
+	
 	err := database.InitDB()
 	if err != nil {
 		log.Fatalf("数据库连接失败: %v", err)
@@ -306,12 +405,12 @@ func main() {
 		log.Printf("数据库表初始化警告: %v", err)
 	}
 	
-	err = controllers.InitSupplier()
+	err = initSupplierRecords()
 	if err != nil {
-		log.Printf("供应商初始化警告: %v", err)
+		log.Printf("供应商记录初始化警告: %v", err)
 	}
 	
-	autoPullSupplierData()
+	autoPullAllSuppliers()
 
 	cfg := config.GetConfig()
 	r := routes.SetupRouter()
