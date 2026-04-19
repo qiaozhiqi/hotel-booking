@@ -2,6 +2,57 @@ package models
 
 import "time"
 
+type Supplier struct {
+	ID          int       `json:"id"`
+	Name        string    `json:"name"`
+	Code        string    `json:"code"`
+	Description string    `json:"description"`
+	APIURL      string    `json:"api_url"`
+	APIKey      string    `json:"-"`
+	Status      string    `json:"status"`
+	CreatedAt   time.Time `json:"created_at"`
+	UpdatedAt   time.Time `json:"updated_at"`
+}
+
+type SupplierHotel struct {
+	ID            int       `json:"id"`
+	SupplierID    int       `json:"supplier_id"`
+	SupplierHotelID string  `json:"supplier_hotel_id"`
+	LocalHotelID  int       `json:"local_hotel_id"`
+	HotelName     string    `json:"hotel_name"`
+	City          string    `json:"city"`
+	Address       string    `json:"address"`
+	Rating        float64   `json:"rating"`
+	ImageURL      string    `json:"image_url"`
+	PriceRange    string    `json:"price_range"`
+	RawData       string    `json:"-"`
+	Status        string    `json:"status"`
+	CreatedAt     time.Time `json:"created_at"`
+	UpdatedAt     time.Time `json:"updated_at"`
+}
+
+type SupplierRoom struct {
+	ID            int       `json:"id"`
+	SupplierID    int       `json:"supplier_id"`
+	SupplierHotelID string  `json:"supplier_hotel_id"`
+	SupplierRoomID string   `json:"supplier_room_id"`
+	LocalRoomID   int       `json:"local_room_id"`
+	RoomName      string    `json:"room_name"`
+	Description   string    `json:"description"`
+	Price         float64   `json:"price"`
+	Capacity      int       `json:"capacity"`
+	Area          int       `json:"area"`
+	BedType       string    `json:"bed_type"`
+	Amenities     string    `json:"amenities"`
+	ImageURL      string    `json:"image_url"`
+	TotalCount    int       `json:"total_count"`
+	AvailableCount int      `json:"available_count"`
+	RawData       string    `json:"-"`
+	Status        string    `json:"status"`
+	CreatedAt     time.Time `json:"created_at"`
+	UpdatedAt     time.Time `json:"updated_at"`
+}
+
 type User struct {
 	ID        int       `json:"id"`
 	Username  string    `json:"username"`
@@ -21,6 +72,7 @@ type Hotel struct {
 	Rating      float64   `json:"rating"`
 	ImageURL    string    `json:"image_url"`
 	PriceRange  string    `json:"price_range"`
+	SupplierID  int       `json:"supplier_id"`
 	CreatedAt   time.Time `json:"created_at"`
 	UpdatedAt   time.Time `json:"updated_at"`
 }
@@ -38,6 +90,7 @@ type Room struct {
 	ImageURL       string    `json:"image_url"`
 	TotalCount     int       `json:"total_count"`
 	AvailableCount int       `json:"available_count"`
+	SupplierID     int       `json:"supplier_id"`
 	CreatedAt      time.Time `json:"created_at"`
 	UpdatedAt      time.Time `json:"updated_at"`
 }
