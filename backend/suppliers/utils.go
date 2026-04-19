@@ -2,7 +2,16 @@ package suppliers
 
 import (
 	"fmt"
+	"math"
 )
+
+func roundToOneDecimal(val float64) float64 {
+	return math.Round(val*10) / 10
+}
+
+func roundPrice(price float64) float64 {
+	return math.Round(price/10) * 10
+}
 
 func getRandomDistrict(city string) string {
 	districts := map[string][]string{
