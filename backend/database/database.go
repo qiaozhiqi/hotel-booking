@@ -6,6 +6,7 @@ import (
 	"log"
 
 	_ "github.com/go-sql-driver/mysql"
+	_ "github.com/mattn/go-sqlite3"
 )
 
 var DB *sql.DB
@@ -13,7 +14,15 @@ var DB *sql.DB
 func InitDB() error {
 	cfg := config.GetConfig()
 	var err error
-	DB, err = sql.Open("mysql", cfg.GetDSN())
+	var driverName string
+	
+	if cfg.DBType == "sqlite" {
+		driverName = "sqlite3"
+	} else {
+		driverName = "mysql"
+	}
+	
+	DB, err = sql.Open(driverName, cfg.GetDSN())
 	if err != nil {
 		return err
 	}
@@ -23,7 +32,11 @@ func InitDB() error {
 		return err
 	}
 
-	log.Println("MySQL数据库连接成功")
+	if cfg.DBType == "sqlite" {
+		log.Println("SQLite数据库连接成功")
+	} else {
+		log.Println("MySQL数据库连接成功")
+	}
 	return nil
 }
 
