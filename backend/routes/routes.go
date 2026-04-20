@@ -36,6 +36,7 @@ func SetupRouter() *gin.Engine {
 
 		api.GET("/hotels", controllers.GetHotelList)
 		api.GET("/hotels/:id", controllers.GetHotelDetail)
+		api.GET("/hotels/:id/rooms/:room_id/comparison", controllers.GetRoomChannelComparison)
 		api.GET("/cities", controllers.GetCities)
 
 		api.POST("/orders", controllers.CreateOrder)

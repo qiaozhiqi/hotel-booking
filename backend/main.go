@@ -63,7 +63,12 @@ func initDatabaseTables() error {
 				rating REAL DEFAULT 0.0,
 				image_url TEXT,
 				price_range TEXT,
+				min_price REAL DEFAULT 0.0,
+				max_price REAL DEFAULT 0.0,
 				supplier_id INTEGER DEFAULT 0,
+				supplier_code TEXT,
+				supplier_name TEXT,
+				brand TEXT,
 				created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
 				updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
 			)
@@ -76,6 +81,7 @@ func initDatabaseTables() error {
 				name TEXT NOT NULL,
 				description TEXT,
 				price REAL NOT NULL,
+				original_price REAL DEFAULT 0.0,
 				capacity INTEGER NOT NULL,
 				area INTEGER,
 				bed_type TEXT,
@@ -84,6 +90,13 @@ func initDatabaseTables() error {
 				total_count INTEGER NOT NULL DEFAULT 1,
 				available_count INTEGER NOT NULL DEFAULT 1,
 				supplier_id INTEGER DEFAULT 0,
+				supplier_code TEXT,
+				supplier_name TEXT,
+				is_price_controlled INTEGER DEFAULT 0,
+				price_control_reason TEXT,
+				promotion_tag TEXT,
+				payment_type TEXT,
+				cancel_policy TEXT,
 				created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
 				updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
 			)
@@ -116,6 +129,9 @@ func initDatabaseTables() error {
 				api_url TEXT,
 				api_key TEXT,
 				status TEXT DEFAULT 'active',
+				priority INTEGER DEFAULT 0,
+				color TEXT,
+				icon TEXT,
 				created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
 				updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
 			)
@@ -255,14 +271,22 @@ func initSupplierRecords() error {
 		
 		if count == 0 {
 			_, err = db.Exec(`
-				INSERT INTO suppliers (name, code, description, api_url, status)
-				VALUES (?, ?, ?, ?, ?)`,
+				INSERT INTO suppliers (name, code, description, api_url, status, priority, color, icon)
+				VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
 				adapter.GetName(), adapter.GetCode(), adapter.GetDescription(),
-				adapter.GetAPIURL(), "active")
+				adapter.GetAPIURL(), "active", adapter.GetPriority(),
+				adapter.GetColor(), adapter.GetIcon())
 			if err != nil {
 				log.Printf("初始化供应商 %s 失败: %v", adapter.GetName(), err)
 			} else {
-				log.Printf("已注册供应商: %s", adapter.GetName())
+				log.Printf("已注册供应商: %s (优先级: %d)", adapter.GetName(), adapter.GetPriority())
+			}
+		} else {
+			_, err = db.Exec(`
+				UPDATE suppliers SET priority = ?, color = ?, icon = ? WHERE code = ?`,
+				adapter.GetPriority(), adapter.GetColor(), adapter.GetIcon(), adapter.GetCode())
+			if err != nil {
+				log.Printf("更新供应商 %s 信息失败: %v", adapter.GetName(), err)
 			}
 		}
 	}
@@ -278,6 +302,9 @@ func pullAndSyncSupplier(adapter suppliers.SupplierAdapter) (int, error) {
 	if err != nil {
 		return 0, fmt.Errorf("获取供应商ID失败: %v", err)
 	}
+	
+	supplierCode := adapter.GetCode()
+	supplierName := adapter.GetName()
 	
 	hotels, err := adapter.FetchHotels()
 	if err != nil {
@@ -301,10 +328,13 @@ func pullAndSyncSupplier(adapter suppliers.SupplierAdapter) (int, error) {
 			}
 			
 			hotelResult, err := tx.Exec(`
-				INSERT INTO hotels (name, address, city, description, rating, image_url, price_range, supplier_id)
-				VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+				INSERT INTO hotels (name, address, city, description, rating, image_url, 
+				price_range, min_price, max_price, supplier_id, supplier_code, supplier_name, brand)
+				VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 				hotelData.Name, hotelData.Address, hotelData.City, hotelData.Description,
-				hotelData.Rating, hotelData.ImageURL, hotelData.PriceRange, supplierID)
+				hotelData.Rating, hotelData.ImageURL, hotelData.PriceRange,
+				hotelData.MinPrice, hotelData.MaxPrice, supplierID,
+				supplierCode, supplierName, hotelData.Brand)
 			if err != nil {
 				tx.Rollback()
 				continue
@@ -325,13 +355,23 @@ func pullAndSyncSupplier(adapter suppliers.SupplierAdapter) (int, error) {
 			}
 			
 			for _, roomData := range hotelData.Rooms {
+				isPriceControlled := 0
+				if roomData.IsPriceControlled {
+					isPriceControlled = 1
+				}
+				
 				roomResult, err := tx.Exec(`
-					INSERT INTO rooms (hotel_id, name, description, price, capacity, area, bed_type, 
-					amenities, image_url, total_count, available_count, supplier_id)
-					VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+					INSERT INTO rooms (hotel_id, name, description, price, original_price, 
+					capacity, area, bed_type, amenities, image_url, total_count, available_count, 
+					supplier_id, supplier_code, supplier_name, is_price_controlled, 
+					price_control_reason, promotion_tag, payment_type, cancel_policy)
+					VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 					localHotelID, roomData.Name, roomData.Description, roomData.Price,
-					roomData.Capacity, roomData.Area, roomData.BedType, roomData.Amenities,
-					roomData.ImageURL, roomData.TotalCount, roomData.AvailableCount, supplierID)
+					roomData.OriginalPrice, roomData.Capacity, roomData.Area, roomData.BedType,
+					roomData.Amenities, roomData.ImageURL, roomData.TotalCount, roomData.AvailableCount,
+					supplierID, supplierCode, supplierName, isPriceControlled,
+					roomData.PriceControlReason, roomData.PromotionTag, roomData.PaymentType,
+					roomData.CancelPolicy)
 				if err != nil {
 					continue
 				}

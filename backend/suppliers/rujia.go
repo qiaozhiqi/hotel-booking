@@ -28,6 +28,18 @@ func (r *RuJiaAdapter) GetAPIURL() string {
 	return "/api/mock/rujia"
 }
 
+func (r *RuJiaAdapter) GetPriority() int {
+	return 3
+}
+
+func (r *RuJiaAdapter) GetColor() string {
+	return "#27AE60"
+}
+
+func (r *RuJiaAdapter) GetIcon() string {
+	return "🏠"
+}
+
 func (r *RuJiaAdapter) FetchHotels() ([]SupplierHotelData, error) {
 	return generateRuJiaMockData(), nil
 }
@@ -43,11 +55,21 @@ func (r *RuJiaAdapter) FetchHotelDetail(hotelID string) (*SupplierHotelData, err
 }
 
 func generateRuJiaMockData() []SupplierHotelData {
-	rand.Seed(time.Now().UnixNano() + 1000)
+	rand.Seed(time.Now().UnixNano() + 30000)
 	
 	cities := []string{"北京", "上海", "广州", "深圳", "苏州", "无锡", "宁波", "福州", "厦门", "青岛"}
 	hotelTypes := []string{"如家酒店", "莫泰酒店", "和颐酒店", "如家精选", "如家商旅", "派酒店", "云上四季"}
 	addressSuffixes := []string{"西单店", "国贸店", "中关村店", "陆家嘴店", "人民广场店", "天河店", "科技园店", "观前街店", "西湖店", "中山路店"}
+	
+	brandMap := map[string]string{
+		"如家酒店":  "如家",
+		"莫泰酒店":  "莫泰",
+		"和颐酒店":  "和颐",
+		"如家精选":  "如家精选",
+		"如家商旅":  "如家商旅",
+		"派酒店":   "派",
+		"云上四季":  "云上四季",
+	}
 	
 	hotels := make([]SupplierHotelData, 10)
 	
@@ -58,6 +80,10 @@ func generateRuJiaMockData() []SupplierHotelData {
 		
 		minPrice := 150 + rand.Intn(200)
 		maxPrice := minPrice + 150 + rand.Intn(200)
+		brand := brandMap[hotelType]
+		if brand == "" {
+			brand = "如家"
+		}
 		
 		hotels[i] = SupplierHotelData{
 			SupplierHotelID: fmt.Sprintf("RJ-HOTEL-%04d", i+1),
@@ -68,6 +94,9 @@ func generateRuJiaMockData() []SupplierHotelData {
 			Rating:          roundToOneDecimal(3.8 + float64(rand.Intn(12))/10),
 			ImageURL:        getHotelImageURL("rujia", i),
 			PriceRange:      fmt.Sprintf("¥%d-¥%d", minPrice, maxPrice),
+			MinPrice:        float64(minPrice),
+			MaxPrice:        float64(maxPrice),
+			Brand:           brand,
 			Rooms:           generateRuJiaRooms(i, minPrice),
 		}
 	}
@@ -77,37 +106,62 @@ func generateRuJiaMockData() []SupplierHotelData {
 
 func generateRuJiaRooms(hotelIndex int, basePrice int) []SupplierRoomData {
 	roomTypes := []struct {
-		name        string
-		description string
-		priceMulti  float64
-		capacity    int
-		area        int
-		bedType     string
+		name             string
+		description      string
+		priceMulti       float64
+		capacity         int
+		area             int
+		bedType          string
+		standardRoomType string
 	}{
-		{"特惠双床房", "经济实惠的特惠客房，适合预算有限的旅客。房间干净整洁，配备基本设施。", 0.9, 2, 22, "双床"},
-		{"标准大床房", "舒适的标准客房，一张大床，适合情侣或单人入住。配备免费WiFi、空调、电视。", 1.0, 2, 25, "大床"},
-		{"商务大床房", "专为商务旅客设计，配备宽大办公桌和高速网络。房间宽敞明亮，工作休息两不误。", 1.3, 2, 32, "大床"},
-		{"精选套房", "宽敞的精选套房，独立起居空间，享受更舒适的住宿体验。适合需要更多空间的旅客。", 2.0, 2, 50, "大床"},
+		{"特惠双床房", "经济实惠的特惠客房，适合预算有限的旅客。房间干净整洁，配备基本设施。", 0.9, 2, 22, "双床", "标准双床房"},
+		{"标准大床房", "舒适的标准客房，一张大床，适合情侣或单人入住。配备免费WiFi、空调、电视。", 1.0, 2, 25, "大床", "标准大床房"},
+		{"商务大床房", "专为商务旅客设计，配备宽大办公桌和高速网络。房间宽敞明亮，工作休息两不误。", 1.3, 2, 32, "大床", "豪华大床房"},
+		{"精选套房", "宽敞的精选套房，独立起居空间，享受更舒适的住宿体验。适合需要更多空间的旅客。", 2.0, 2, 50, "大床", "行政套房"},
 	}
+	
+	promotionTags := []string{"首单立减", "会员价", "周末特惠", "提前预订优惠", "", "", ""}
+	paymentTypes := []string{"现付", "预付"}
+	cancelPolicies := []string{"免费取消(入住前1天)", "不可取消"}
 	
 	rooms := make([]SupplierRoomData, len(roomTypes))
 	for i, rt := range roomTypes {
 		price := float64(basePrice) * rt.priceMulti
+		originalPrice := price * (1.03 + float64(rand.Intn(15))/100)
 		totalCount := 15 + rand.Intn(25)
 		availableCount := totalCount - rand.Intn(8)
 		
+		isPriceControlled := false
+		priceControlReason := ""
+		if i == 0 && rand.Intn(2) == 0 {
+			isPriceControlled = true
+			priceControlReason = "特惠活动价"
+		}
+		
+		promotionTag := ""
+		if rand.Intn(3) == 0 {
+			promotionTag = promotionTags[rand.Intn(len(promotionTags))]
+		}
+		
 		rooms[i] = SupplierRoomData{
-			SupplierRoomID: fmt.Sprintf("RJ-ROOM-%04d-%02d", hotelIndex+1, i+1),
-			Name:            rt.name,
-			Description:     rt.description,
-			Price:           roundPrice(price),
-			Capacity:        rt.capacity,
-			Area:            rt.area,
-			BedType:         rt.bedType,
-			Amenities:       "免费WiFi, 空调, 电视, 24小时热水, 吹风机",
-			ImageURL:        getRoomImageURL("rujia", hotelIndex, i),
-			TotalCount:      totalCount,
-			AvailableCount:  availableCount,
+			SupplierRoomID:     fmt.Sprintf("RJ-ROOM-%04d-%02d", hotelIndex+1, i+1),
+			Name:               rt.name,
+			Description:        rt.description,
+			Price:              roundPrice(price),
+			OriginalPrice:      roundPrice(originalPrice),
+			Capacity:           rt.capacity,
+			Area:               rt.area,
+			BedType:            rt.bedType,
+			StandardRoomType:   rt.standardRoomType,
+			Amenities:          "免费WiFi, 空调, 电视, 24小时热水, 吹风机",
+			ImageURL:           getRoomImageURL("rujia", hotelIndex, i),
+			TotalCount:         totalCount,
+			AvailableCount:     availableCount,
+			IsPriceControlled:  isPriceControlled,
+			PriceControlReason: priceControlReason,
+			PromotionTag:       promotionTag,
+			PaymentType:        paymentTypes[rand.Intn(len(paymentTypes))],
+			CancelPolicy:       cancelPolicies[rand.Intn(len(cancelPolicies))],
 		}
 	}
 	

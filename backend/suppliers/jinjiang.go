@@ -28,6 +28,18 @@ func (j *JinJiangAdapter) GetAPIURL() string {
 	return "/api/mock/jinjiang"
 }
 
+func (j *JinJiangAdapter) GetPriority() int {
+	return 2
+}
+
+func (j *JinJiangAdapter) GetColor() string {
+	return "#1E88E5"
+}
+
+func (j *JinJiangAdapter) GetIcon() string {
+	return "🏩"
+}
+
 func (j *JinJiangAdapter) FetchHotels() ([]SupplierHotelData, error) {
 	return generateJinJiangMockData(), nil
 }
@@ -43,11 +55,22 @@ func (j *JinJiangAdapter) FetchHotelDetail(hotelID string) (*SupplierHotelData, 
 }
 
 func generateJinJiangMockData() []SupplierHotelData {
-	rand.Seed(time.Now().UnixNano() + 2000)
+	rand.Seed(time.Now().UnixNano() + 20000)
 	
 	cities := []string{"上海", "北京", "成都", "重庆", "武汉", "长沙", "郑州", "济南", "沈阳", "哈尔滨"}
 	hotelTypes := []string{"锦江酒店", "锦江之星", "白玉兰酒店", "丽枫酒店", "喆啡酒店", "潮漫酒店", "7天连锁", "IU酒店"}
 	addressSuffixes := []string{"人民广场店", "外滩中心店", "中关村店", "春熙路店", "解放碑店", "光谷店", "五一广场店", "二七广场店", "泉城广场店", "中央大街店"}
+	
+	brandMap := map[string]string{
+		"锦江酒店":  "锦江",
+		"锦江之星":  "锦江之星",
+		"白玉兰酒店": "白玉兰",
+		"丽枫酒店":  "丽枫",
+		"喆啡酒店":  "喆啡",
+		"潮漫酒店":  "潮漫",
+		"7天连锁":   "7天",
+		"IU酒店":   "IU",
+	}
 	
 	hotels := make([]SupplierHotelData, 11)
 	
@@ -58,6 +81,10 @@ func generateJinJiangMockData() []SupplierHotelData {
 		
 		minPrice := 180 + rand.Intn(250)
 		maxPrice := minPrice + 180 + rand.Intn(250)
+		brand := brandMap[hotelType]
+		if brand == "" {
+			brand = "锦江"
+		}
 		
 		hotels[i] = SupplierHotelData{
 			SupplierHotelID: fmt.Sprintf("JJ-HOTEL-%04d", i+1),
@@ -68,6 +95,9 @@ func generateJinJiangMockData() []SupplierHotelData {
 			Rating:          roundToOneDecimal(4.1 + float64(rand.Intn(9))/10),
 			ImageURL:        getHotelImageURL("jinjiang", i),
 			PriceRange:      fmt.Sprintf("¥%d-¥%d", minPrice, maxPrice),
+			MinPrice:        float64(minPrice),
+			MaxPrice:        float64(maxPrice),
+			Brand:           brand,
 			Rooms:           generateJinJiangRooms(i, minPrice),
 		}
 	}
@@ -77,38 +107,63 @@ func generateJinJiangMockData() []SupplierHotelData {
 
 func generateJinJiangRooms(hotelIndex int, basePrice int) []SupplierRoomData {
 	roomTypes := []struct {
-		name        string
-		description string
-		priceMulti  float64
-		capacity    int
-		area        int
-		bedType     string
+		name             string
+		description      string
+		priceMulti       float64
+		capacity         int
+		area             int
+		bedType          string
+		standardRoomType string
 	}{
-		{"经济房", "简洁舒适的经济客房，适合预算敏感的旅客。房间干净整洁，配备基本生活设施。", 0.85, 2, 20, "大床"},
-		{"标准双床房", "经济实惠的标准客房，两张单人床，适合商务出行。配备免费WiFi、空调、电视和24小时热水。", 1.0, 2, 24, "双床"},
-		{"商务大床房", "宽敞舒适的商务客房，配备优质床品和现代化设施。适合商务旅客和休闲游客。", 1.4, 2, 35, "大床"},
-		{"豪华套房", "高端豪华套房，独立客厅和卧室，配备高品质家具和设备。享受尊贵的住宿体验。", 2.2, 2, 55, "大床"},
-		{"家庭亲子房", "温馨舒适的家庭房，配备大床和儿童床，适合家庭出行。空间宽敞，设施齐全。", 1.6, 3, 40, "大床+单人床"},
+		{"经济房", "简洁舒适的经济客房，适合预算敏感的旅客。房间干净整洁，配备基本生活设施。", 0.85, 2, 20, "大床", "标准大床房"},
+		{"标准双床房", "经济实惠的标准客房，两张单人床，适合商务出行。配备免费WiFi、空调、电视和24小时热水。", 1.0, 2, 24, "双床", "标准双床房"},
+		{"商务大床房", "宽敞舒适的商务客房，配备优质床品和现代化设施。适合商务旅客和休闲游客。", 1.4, 2, 35, "大床", "豪华大床房"},
+		{"豪华套房", "高端豪华套房，独立客厅和卧室，配备高品质家具和设备。享受尊贵的住宿体验。", 2.2, 2, 55, "大床", "行政套房"},
+		{"家庭亲子房", "温馨舒适的家庭房，配备大床和儿童床，适合家庭出行。空间宽敞，设施齐全。", 1.6, 3, 40, "大床+单人床", "家庭房"},
 	}
+	
+	promotionTags := []string{"会员专享价", "新客特惠", "限时闪购", "连住2晚9折", "", "", ""}
+	paymentTypes := []string{"现付", "预付", "信用住"}
+	cancelPolicies := []string{"免费取消(入住前1天)", "部分取消", "不可取消"}
 	
 	rooms := make([]SupplierRoomData, len(roomTypes))
 	for i, rt := range roomTypes {
 		price := float64(basePrice) * rt.priceMulti
+		originalPrice := price * (1.08 + float64(rand.Intn(25))/100)
 		totalCount := 12 + rand.Intn(28)
 		availableCount := totalCount - rand.Intn(6)
 		
+		isPriceControlled := false
+		priceControlReason := ""
+		if i == 1 && rand.Intn(2) == 0 {
+			isPriceControlled = true
+			priceControlReason = "集团控价"
+		}
+		
+		promotionTag := ""
+		if rand.Intn(3) == 0 {
+			promotionTag = promotionTags[rand.Intn(len(promotionTags))]
+		}
+		
 		rooms[i] = SupplierRoomData{
-			SupplierRoomID: fmt.Sprintf("JJ-ROOM-%04d-%02d", hotelIndex+1, i+1),
-			Name:            rt.name,
-			Description:     rt.description,
-			Price:           roundPrice(price),
-			Capacity:        rt.capacity,
-			Area:            rt.area,
-			BedType:         rt.bedType,
-			Amenities:       "免费WiFi, 空调, 电视, 24小时热水, 吹风机, 电热水壶, 免费矿泉水",
-			ImageURL:        getRoomImageURL("jinjiang", hotelIndex, i),
-			TotalCount:      totalCount,
-			AvailableCount:  availableCount,
+			SupplierRoomID:     fmt.Sprintf("JJ-ROOM-%04d-%02d", hotelIndex+1, i+1),
+			Name:               rt.name,
+			Description:        rt.description,
+			Price:              roundPrice(price),
+			OriginalPrice:      roundPrice(originalPrice),
+			Capacity:           rt.capacity,
+			Area:               rt.area,
+			BedType:            rt.bedType,
+			StandardRoomType:   rt.standardRoomType,
+			Amenities:          "免费WiFi, 空调, 电视, 24小时热水, 吹风机, 电热水壶, 免费矿泉水",
+			ImageURL:           getRoomImageURL("jinjiang", hotelIndex, i),
+			TotalCount:         totalCount,
+			AvailableCount:     availableCount,
+			IsPriceControlled:  isPriceControlled,
+			PriceControlReason: priceControlReason,
+			PromotionTag:       promotionTag,
+			PaymentType:        paymentTypes[rand.Intn(len(paymentTypes))],
+			CancelPolicy:       cancelPolicies[rand.Intn(len(cancelPolicies))],
 		}
 	}
 	

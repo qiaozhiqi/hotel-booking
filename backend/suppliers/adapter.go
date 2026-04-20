@@ -14,21 +14,31 @@ type SupplierHotelData struct {
 	Rating          float64
 	ImageURL        string
 	PriceRange      string
+	MinPrice        float64
+	MaxPrice        float64
+	Brand           string
 	Rooms           []SupplierRoomData
 }
 
 type SupplierRoomData struct {
-	SupplierRoomID  string
-	Name            string
-	Description     string
-	Price           float64
-	Capacity        int
-	Area            int
-	BedType         string
-	Amenities       string
-	ImageURL        string
-	TotalCount      int
-	AvailableCount  int
+	SupplierRoomID     string
+	Name               string
+	Description        string
+	Price              float64
+	OriginalPrice      float64
+	Capacity           int
+	Area               int
+	BedType            string
+	StandardRoomType   string
+	Amenities          string
+	ImageURL           string
+	TotalCount         int
+	AvailableCount     int
+	IsPriceControlled  bool
+	PriceControlReason string
+	PromotionTag       string
+	PaymentType        string
+	CancelPolicy       string
 }
 
 type SupplierAdapter interface {
@@ -36,6 +46,9 @@ type SupplierAdapter interface {
 	GetName() string
 	GetDescription() string
 	GetAPIURL() string
+	GetPriority() int
+	GetColor() string
+	GetIcon() string
 	
 	FetchHotels() ([]SupplierHotelData, error)
 	FetchHotelDetail(hotelID string) (*SupplierHotelData, error)
@@ -75,5 +88,17 @@ func ToSupplierModel(adapter SupplierAdapter) models.Supplier {
 		Description: adapter.GetDescription(),
 		APIURL:      adapter.GetAPIURL(),
 		Status:      "active",
+		Priority:    adapter.GetPriority(),
+		Color:       adapter.GetColor(),
+		Icon:        adapter.GetIcon(),
 	}
+}
+
+func GetSupplierByCode(code string) *models.Supplier {
+	adapter := GetAdapter(code)
+	if adapter == nil {
+		return nil
+	}
+	model := ToSupplierModel(adapter)
+	return &model
 }

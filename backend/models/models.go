@@ -10,6 +10,9 @@ type Supplier struct {
 	APIURL      string    `json:"api_url"`
 	APIKey      string    `json:"-"`
 	Status      string    `json:"status"`
+	Priority    int       `json:"priority"`
+	Color       string    `json:"color"`
+	Icon        string    `json:"icon"`
 	CreatedAt   time.Time `json:"created_at"`
 	UpdatedAt   time.Time `json:"updated_at"`
 }
@@ -64,17 +67,22 @@ type User struct {
 }
 
 type Hotel struct {
-	ID          int       `json:"id"`
-	Name        string    `json:"name"`
-	Address     string    `json:"address"`
-	City        string    `json:"city"`
-	Description string    `json:"description"`
-	Rating      float64   `json:"rating"`
-	ImageURL    string    `json:"image_url"`
-	PriceRange  string    `json:"price_range"`
-	SupplierID  int       `json:"supplier_id"`
-	CreatedAt   time.Time `json:"created_at"`
-	UpdatedAt   time.Time `json:"updated_at"`
+	ID             int       `json:"id"`
+	Name           string    `json:"name"`
+	Address        string    `json:"address"`
+	City           string    `json:"city"`
+	Description    string    `json:"description"`
+	Rating         float64   `json:"rating"`
+	ImageURL       string    `json:"image_url"`
+	PriceRange     string    `json:"price_range"`
+	MinPrice       float64   `json:"min_price"`
+	MaxPrice       float64   `json:"max_price"`
+	SupplierID     int       `json:"supplier_id"`
+	SupplierCode   string    `json:"supplier_code"`
+	SupplierName   string    `json:"supplier_name"`
+	Brand          string    `json:"brand"`
+	CreatedAt      time.Time `json:"created_at"`
+	UpdatedAt      time.Time `json:"updated_at"`
 }
 
 type Room struct {
@@ -83,6 +91,7 @@ type Room struct {
 	Name           string    `json:"name"`
 	Description    string    `json:"description"`
 	Price          float64   `json:"price"`
+	OriginalPrice  float64   `json:"original_price"`
 	Capacity       int       `json:"capacity"`
 	Area           int       `json:"area"`
 	BedType        string    `json:"bed_type"`
@@ -91,6 +100,13 @@ type Room struct {
 	TotalCount     int       `json:"total_count"`
 	AvailableCount int       `json:"available_count"`
 	SupplierID     int       `json:"supplier_id"`
+	SupplierCode   string    `json:"supplier_code"`
+	SupplierName   string    `json:"supplier_name"`
+	IsPriceControlled bool   `json:"is_price_controlled"`
+	PriceControlReason string `json:"price_control_reason"`
+	PromotionTag   string    `json:"promotion_tag"`
+	PaymentType    string    `json:"payment_type"`
+	CancelPolicy   string    `json:"cancel_policy"`
 	CreatedAt      time.Time `json:"created_at"`
 	UpdatedAt      time.Time `json:"updated_at"`
 }
@@ -138,4 +154,42 @@ type Response struct {
 	Code    int         `json:"code"`
 	Message string      `json:"message"`
 	Data    interface{} `json:"data,omitempty"`
+}
+
+type ChannelPriceInfo struct {
+	SupplierCode       string  `json:"supplier_code"`
+	SupplierName       string  `json:"supplier_name"`
+	SupplierPriority   int     `json:"supplier_priority"`
+	SupplierColor      string  `json:"supplier_color"`
+	SupplierIcon       string  `json:"supplier_icon"`
+	RoomID             int     `json:"room_id"`
+	RoomName           string  `json:"room_name"`
+	Price              float64 `json:"price"`
+	OriginalPrice      float64 `json:"original_price"`
+	Discount           float64 `json:"discount"`
+	AvailableCount     int     `json:"available_count"`
+	TotalCount         int     `json:"total_count"`
+	IsPriceControlled  bool    `json:"is_price_controlled"`
+	PriceControlReason string  `json:"price_control_reason"`
+	IsBestPrice        bool    `json:"is_best_price"`
+	IsRecommended      bool    `json:"is_recommended"`
+	IsPriorityChannel  bool    `json:"is_priority_channel"`
+	PromotionTag       string  `json:"promotion_tag"`
+	PaymentType        string  `json:"payment_type"`
+	CancelPolicy       string  `json:"cancel_policy"`
+}
+
+type HotelChannelComparison struct {
+	HotelID           int                `json:"hotel_id"`
+	HotelName         string             `json:"hotel_name"`
+	RoomID            int                `json:"room_id"`
+	RoomName          string             `json:"room_name"`
+	StandardRoomType  string             `json:"standard_room_type"`
+	Channels          []ChannelPriceInfo `json:"channels"`
+	MinPrice          float64            `json:"min_price"`
+	MaxPrice          float64            `json:"max_price"`
+	BestPrice         float64            `json:"best_price"`
+	BestPriceSupplier string             `json:"best_price_supplier"`
+	BestPriceChannel  string             `json:"best_price_channel"`
+	RecommendedChannel string            `json:"recommended_channel"`
 }

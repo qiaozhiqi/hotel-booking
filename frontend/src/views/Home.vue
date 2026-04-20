@@ -13,6 +13,15 @@
             </select>
           </div>
           <div class="search-item">
+            <label class="search-label">供应商</label>
+            <select v-model="selectedSupplier" class="search-select">
+              <option value="">全部供应商</option>
+              <option v-for="supplier in suppliers" :key="supplier.code" :value="supplier.code">
+                {{ supplier.icon }} {{ supplier.name }}
+              </option>
+            </select>
+          </div>
+          <div class="search-item">
             <label class="search-label">入住日期</label>
             <input type="date" v-model="checkIn" class="search-input" :min="today" />
           </div>
@@ -47,9 +56,20 @@
               <span class="rating-star">⭐</span>
               <span class="rating-value">{{ hotel.rating }}</span>
             </div>
+            <div 
+              v-if="hotel.supplier_code" 
+              class="supplier-badge" 
+              :style="{ backgroundColor: getSupplierColor(hotel.supplier_code) }"
+            >
+              <span class="supplier-icon">{{ getSupplierIcon(hotel.supplier_code) }}</span>
+              <span class="supplier-name">{{ hotel.supplier_name }}</span>
+            </div>
           </div>
           <div class="hotel-info">
-            <h3 class="hotel-name">{{ hotel.name }}</h3>
+            <div class="hotel-header-row">
+              <h3 class="hotel-name">{{ hotel.name }}</h3>
+              <span v-if="hotel.brand" class="brand-tag">{{ hotel.brand }}</span>
+            </div>
             <p class="hotel-location">
               <span class="location-icon">📍</span>
               {{ hotel.city }} · {{ hotel.address }}
@@ -57,7 +77,10 @@
             <p class="hotel-desc" v-if="hotel.description">{{ hotel.description }}</p>
             <div class="hotel-price">
               <span class="price-label">起价</span>
-              <span class="price-value">{{ hotel.price_range }}</span>
+              <span class="price-value">
+                <span v-if="hotel.min_price > 0">¥{{ hotel.min_price }}</span>
+                <span v-else>{{ hotel.price_range }}</span>
+              </span>
             </div>
           </div>
         </div>
@@ -94,6 +117,27 @@ import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { hotelApi } from '../api'
 
+const supplierConfig = {
+  huazhu: {
+    code: 'huazhu',
+    name: '华住酒店集团',
+    color: '#FF6B35',
+    icon: '🏨'
+  },
+  jinjiang: {
+    code: 'jinjiang',
+    name: '锦江国际酒店集团',
+    color: '#1E88E5',
+    icon: '🏩'
+  },
+  rujia: {
+    code: 'rujia',
+    name: '如家酒店集团',
+    color: '#27AE60',
+    icon: '🏠'
+  }
+}
+
 export default {
   name: 'Home',
   setup() {
@@ -104,6 +148,7 @@ export default {
     
     const cities = ref([])
     const selectedCity = ref('')
+    const selectedSupplier = ref('')
     const checkIn = ref(today)
     const checkOut = ref(tomorrow)
     
@@ -112,7 +157,19 @@ export default {
     const page = ref(1)
     const pageSize = ref(6)
     
+    const suppliers = computed(() => {
+      return Object.values(supplierConfig)
+    })
+    
     const totalPages = computed(() => Math.ceil(total.value / pageSize.value))
+
+    const getSupplierColor = (code) => {
+      return supplierConfig[code]?.color || '#666'
+    }
+    
+    const getSupplierIcon = (code) => {
+      return supplierConfig[code]?.icon || '🏨'
+    }
 
     const loadCities = async () => {
       try {
@@ -133,6 +190,9 @@ export default {
         }
         if (selectedCity.value) {
           params.city = selectedCity.value
+        }
+        if (selectedSupplier.value) {
+          params.supplier_code = selectedSupplier.value
         }
         
         const res = await hotelApi.getList(params)
@@ -168,6 +228,8 @@ export default {
       today,
       cities,
       selectedCity,
+      selectedSupplier,
+      suppliers,
       checkIn,
       checkOut,
       hotels,
@@ -177,7 +239,9 @@ export default {
       totalPages,
       searchHotels,
       changePage,
-      goToHotel
+      goToHotel,
+      getSupplierColor,
+      getSupplierIcon
     }
   }
 }
@@ -459,6 +523,52 @@ export default {
 .page-info {
   font-size: 14px;
   color: #666;
+}
+
+.supplier-badge {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 12px;
+  background: rgba(255, 107, 53, 0.95);
+  border-radius: 20px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.supplier-icon {
+  font-size: 14px;
+}
+
+.supplier-name {
+  font-size: 12px;
+  font-weight: 600;
+  color: #fff;
+}
+
+.hotel-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.hotel-header-row .hotel-name {
+  margin-bottom: 0;
+  flex: 1;
+}
+
+.brand-tag {
+  flex-shrink: 0;
+  padding: 2px 8px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 500;
+  border-radius: 4px;
 }
 
 @media (max-width: 1024px) {
