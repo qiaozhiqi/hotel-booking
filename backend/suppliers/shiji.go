@@ -21,18 +21,19 @@ type ShijiSubSupplierConfig struct {
 	HotelIDPrefix  string
 	RoomIDPrefix   string
 	ImageThemes    []string
-	RoomTypes      []ShijiRoomTypeConfig
+	RoomTypeConfigs []ShijiRoomTypeStaticConfig
 	HotelCount     int
 }
 
-type ShijiRoomTypeConfig struct {
+type ShijiRoomTypeStaticConfig struct {
 	Name        string
 	Description string
-	PriceMulti  float64
 	Capacity    int
 	Area        int
 	BedType     string
 	Amenities   string
+	BasePrice   float64
+	PriceMulti  float64
 }
 
 type ShijiGenericAdapter struct {
@@ -60,11 +61,37 @@ func (s *ShijiGenericAdapter) GetAPIURL() string {
 }
 
 func (s *ShijiGenericAdapter) FetchHotels() ([]SupplierHotelData, error) {
-	return s.generateMockHotels(), nil
+	hotels, err := s.FetchHotelStaticList()
+	if err != nil {
+		return nil, err
+	}
+	
+	result := make([]SupplierHotelData, len(hotels))
+	for i, hotel := range hotels {
+		priceInventory, _ := s.FetchPriceInventory(hotel.SupplierHotelID, "", "")
+		result[i] = ConvertFromStaticData(hotel, priceInventory)
+	}
+	
+	return result, nil
 }
 
 func (s *ShijiGenericAdapter) FetchHotelDetail(hotelID string) (*SupplierHotelData, error) {
-	hotels := s.generateMockHotels()
+	hotel, err := s.FetchHotelStaticDetail(hotelID)
+	if err != nil {
+		return nil, err
+	}
+	
+	priceInventory, _ := s.FetchPriceInventory(hotelID, "", "")
+	result := ConvertFromStaticData(*hotel, priceInventory)
+	return &result, nil
+}
+
+func (s *ShijiGenericAdapter) FetchHotelStaticList() ([]SupplierHotelStaticData, error) {
+	return s.generateStaticHotels(), nil
+}
+
+func (s *ShijiGenericAdapter) FetchHotelStaticDetail(hotelID string) (*SupplierHotelStaticData, error) {
+	hotels := s.generateStaticHotels()
 	for _, hotel := range hotels {
 		if hotel.SupplierHotelID == hotelID {
 			return &hotel, nil
@@ -73,7 +100,11 @@ func (s *ShijiGenericAdapter) FetchHotelDetail(hotelID string) (*SupplierHotelDa
 	return nil, fmt.Errorf("hotel not found: %s", hotelID)
 }
 
-func (s *ShijiGenericAdapter) generateMockHotels() []SupplierHotelData {
+func (s *ShijiGenericAdapter) FetchPriceInventory(hotelID string, checkInDate, checkOutDate string) ([]SupplierPriceInventoryData, error) {
+	return s.generateMockPriceInventory(hotelID, checkInDate, checkOutDate), nil
+}
+
+func (s *ShijiGenericAdapter) generateStaticHotels() []SupplierHotelStaticData {
 	rand.Seed(time.Now().UnixNano() + int64(s.hashCode(s.config.Code)))
 	
 	cities := s.config.Cities
@@ -96,7 +127,7 @@ func (s *ShijiGenericAdapter) generateMockHotels() []SupplierHotelData {
 		hotelCount = 10
 	}
 	
-	hotels := make([]SupplierHotelData, hotelCount)
+	hotels := make([]SupplierHotelStaticData, hotelCount)
 	
 	for i := 0; i < hotelCount; i++ {
 		city := cities[i%len(cities)]
@@ -106,7 +137,7 @@ func (s *ShijiGenericAdapter) generateMockHotels() []SupplierHotelData {
 		minPrice := s.config.MinPriceBase + rand.Intn(s.config.MaxPriceBase)
 		maxPrice := minPrice + s.config.MinPriceBase/2 + rand.Intn(s.config.MaxPriceBase/2)
 		
-		hotels[i] = SupplierHotelData{
+		hotels[i] = SupplierHotelStaticData{
 			SupplierHotelID: fmt.Sprintf("%s-HOTEL-%04d", s.config.HotelIDPrefix, i+1),
 			Name:            fmt.Sprintf("%s(%s%s)", hotelType, city, addressSuffix),
 			City:            city,
@@ -115,45 +146,81 @@ func (s *ShijiGenericAdapter) generateMockHotels() []SupplierHotelData {
 			Rating:          roundToOneDecimal(s.config.RatingBase + float64(rand.Intn(int(s.config.RatingRange*10)))/10),
 			ImageURL:        s.getHotelImageURL(i),
 			PriceRange:      fmt.Sprintf("¥%d-¥%d", minPrice, maxPrice),
-			Rooms:           s.generateRooms(i, minPrice),
+			RoomTypes:       s.generateRoomTypeStaticData(i),
 		}
 	}
 	
 	return hotels
 }
 
-func (s *ShijiGenericAdapter) generateRooms(hotelIndex int, basePrice int) []SupplierRoomData {
-	roomTypes := s.config.RoomTypes
-	if len(roomTypes) == 0 {
-		roomTypes = []ShijiRoomTypeConfig{
-			{"标准双床房", "经济实惠的标准客房，适合商务出行。", 1.0, 2, 25, "双床", "免费WiFi, 空调, 电视, 24小时热水"},
-			{"豪华大床房", "宽敞舒适的豪华客房，配备高品质设施。", 1.3, 2, 32, "大床", "免费WiFi, 空调, 电视, 24小时热水, 迷你吧"},
-			{"行政套房", "高端行政套房，独立客厅和卧室。", 2.0, 2, 50, "大床", "免费WiFi, 空调, 电视, 24小时热水, 迷你吧, 保险箱"},
+func (s *ShijiGenericAdapter) generateRoomTypeStaticData(hotelIndex int) []SupplierRoomTypeData {
+	roomTypeConfigs := s.config.RoomTypeConfigs
+	if len(roomTypeConfigs) == 0 {
+		roomTypeConfigs = []ShijiRoomTypeStaticConfig{
+			{"标准双床房", "经济实惠的标准客房，适合商务出行。", 2, 25, "双床", "免费WiFi, 空调, 电视, 24小时热水", 300, 1.0},
+			{"豪华大床房", "宽敞舒适的豪华客房，配备高品质设施。", 2, 32, "大床", "免费WiFi, 空调, 电视, 24小时热水, 迷你吧", 400, 1.3},
+			{"行政套房", "高端行政套房，独立客厅和卧室。", 2, 50, "大床", "免费WiFi, 空调, 电视, 24小时热水, 迷你吧, 保险箱", 600, 2.0},
 		}
 	}
 	
-	rooms := make([]SupplierRoomData, len(roomTypes))
-	for i, rt := range roomTypes {
-		price := float64(basePrice) * rt.PriceMulti
+	roomTypes := make([]SupplierRoomTypeData, len(roomTypeConfigs))
+	for i, rt := range roomTypeConfigs {
 		totalCount := 10 + rand.Intn(25)
-		availableCount := totalCount - rand.Intn(5)
 		
-		rooms[i] = SupplierRoomData{
+		roomTypes[i] = SupplierRoomTypeData{
 			SupplierRoomID: fmt.Sprintf("%s-ROOM-%04d-%02d", s.config.RoomIDPrefix, hotelIndex+1, i+1),
-			Name:            rt.Name,
-			Description:     rt.Description,
+			Name:           rt.Name,
+			Description:    rt.Description,
+			Capacity:       rt.Capacity,
+			Area:           rt.Area,
+			BedType:        rt.BedType,
+			Amenities:      rt.Amenities,
+			ImageURL:       getRoomImageURL(s.config.Code, hotelIndex, i),
+			TotalCount:     totalCount,
+		}
+	}
+	
+	return roomTypes
+}
+
+func (s *ShijiGenericAdapter) generateMockPriceInventory(hotelID string, checkInDate, checkOutDate string) []SupplierPriceInventoryData {
+	rand.Seed(time.Now().UnixNano() + int64(s.hashCode(hotelID)))
+	
+	roomTypeConfigs := s.config.RoomTypeConfigs
+	if len(roomTypeConfigs) == 0 {
+		roomTypeConfigs = []ShijiRoomTypeStaticConfig{
+			{"标准双床房", "经济实惠的标准客房，适合商务出行。", 2, 25, "双床", "免费WiFi, 空调, 电视, 24小时热水", 300, 1.0},
+			{"豪华大床房", "宽敞舒适的豪华客房，配备高品质设施。", 2, 32, "大床", "免费WiFi, 空调, 电视, 24小时热水, 迷你吧", 400, 1.3},
+			{"行政套房", "高端行政套房，独立客厅和卧室。", 2, 50, "大床", "免费WiFi, 空调, 电视, 24小时热水, 迷你吧, 保险箱", 600, 2.0},
+		}
+	}
+	
+	basePrice := float64(s.config.MinPriceBase)
+	priceInventory := make([]SupplierPriceInventoryData, len(roomTypeConfigs))
+	
+	for i, rt := range roomTypeConfigs {
+		roomID := fmt.Sprintf("%s-ROOM-0001-%02d", s.config.RoomIDPrefix, i+1)
+		
+		priceFluctuation := 0.9 + rand.Float64()*0.2
+		price := basePrice * rt.PriceMulti * priceFluctuation
+		
+		availableCount := 5 + rand.Intn(10)
+		
+		date := checkInDate
+		if date == "" {
+			date = time.Now().Format("2006-01-02")
+		}
+		
+		priceInventory[i] = SupplierPriceInventoryData{
+			SupplierHotelID: hotelID,
+			SupplierRoomID:  roomID,
+			Date:            date,
 			Price:           roundPrice(price),
-			Capacity:        rt.Capacity,
-			Area:            rt.Area,
-			BedType:         rt.BedType,
-			Amenities:       rt.Amenities,
-			ImageURL:        getRoomImageURL(s.config.Code, hotelIndex, i),
-			TotalCount:      totalCount,
 			AvailableCount:  availableCount,
 		}
 	}
 	
-	return rooms
+	return priceInventory
 }
 
 func (s *ShijiGenericAdapter) getHotelImageURL(index int) string {
@@ -207,12 +274,12 @@ var ShijiSubSuppliers = []ShijiSubSupplierConfig{
 			"marriott resort infinity pool ocean view",
 			"marriott bonvoy elite lounge",
 		},
-		RoomTypes: []ShijiRoomTypeConfig{
-			{"豪华客房", "宽敞明亮的豪华客房，配备高品质床品和现代化设施。享受城市美景，是商务和休闲的理想选择。", 1.0, 2, 35, "大床/双床", "免费WiFi, 中央空调, 智能电视, 24小时热水, 迷你吧, 保险箱, 熨斗, 浴袍拖鞋, 免费矿泉水"},
-			{"行政客房", "位于行政楼层的高级客房，可享受行政酒廊礼遇。配备宽大办公桌和高速网络，专为商务精英打造。", 1.4, 2, 42, "大床/双床", "免费WiFi, 中央空调, 优质睡床, 智能电视, 24小时热水, 迷你吧, 保险箱, 熨斗, 浴袍拖鞋"},
-			{"小型套房", "独立客厅与卧室的小型套房，空间宽敞舒适。配备高品质家具和现代化设施，享受尊贵住宿体验。", 2.0, 2, 55, "大床", "免费WiFi, 中央空调, 奢华睡床, 智能电视, 24小时热水, 迷你吧, 保险箱, 熨斗, 浴袍拖鞋, 免费茶包"},
-			{"行政套房", "高端行政套房，独立客厅和卧室，配备宽大办公桌和高速网络。享受行政楼层礼遇，适合高端商务人士。", 2.8, 2, 75, "大床", "免费WiFi, 中央空调, 奢华睡床, 智能电视, 24小时热水, 迷你吧, 保险箱, 熨斗, 浴袍拖鞋, 私人管家服务"},
-			{"豪华套房", "顶级豪华套房，宽敞的独立客厅和卧室，配备奢华家具和设施。享受私人管家服务，是尊贵宾客的首选。", 4.0, 3, 120, "大床", "免费WiFi, 中央空调, 奢华睡床, 智能电视, 24小时热水, 迷你吧, 保险箱, 熨斗, 浴袍拖鞋, 私人管家服务, 专属餐厅"},
+		RoomTypeConfigs: []ShijiRoomTypeStaticConfig{
+			{"豪华客房", "宽敞明亮的豪华客房，配备高品质床品和现代化设施。享受城市美景，是商务和休闲的理想选择。", 2, 35, "大床/双床", "免费WiFi, 中央空调, 智能电视, 24小时热水, 迷你吧, 保险箱, 熨斗, 浴袍拖鞋, 免费矿泉水", 500, 1.0},
+			{"行政客房", "位于行政楼层的高级客房，可享受行政酒廊礼遇。配备宽大办公桌和高速网络，专为商务精英打造。", 2, 42, "大床/双床", "免费WiFi, 中央空调, 优质睡床, 智能电视, 24小时热水, 迷你吧, 保险箱, 熨斗, 浴袍拖鞋", 500, 1.4},
+			{"小型套房", "独立客厅与卧室的小型套房，空间宽敞舒适。配备高品质家具和现代化设施，享受尊贵住宿体验。", 2, 55, "大床", "免费WiFi, 中央空调, 奢华睡床, 智能电视, 24小时热水, 迷你吧, 保险箱, 熨斗, 浴袍拖鞋, 免费茶包", 500, 2.0},
+			{"行政套房", "高端行政套房，独立客厅和卧室，配备宽大办公桌和高速网络。享受行政楼层礼遇，适合高端商务人士。", 2, 75, "大床", "免费WiFi, 中央空调, 奢华睡床, 智能电视, 24小时热水, 迷你吧, 保险箱, 熨斗, 浴袍拖鞋, 私人管家服务", 500, 2.8},
+			{"豪华套房", "顶级豪华套房，宽敞的独立客厅和卧室，配备奢华家具和设施。享受私人管家服务，是尊贵宾客的首选。", 3, 120, "大床", "免费WiFi, 中央空调, 奢华睡床, 智能电视, 24小时热水, 迷你吧, 保险箱, 熨斗, 浴袍拖鞋, 私人管家服务, 专属餐厅", 500, 4.0},
 		},
 	},
 	{
@@ -244,12 +311,12 @@ var ShijiSubSuppliers = []ShijiSubSupplierConfig{
 			"conrad hotel art collection display",
 			"hilton resort beachfront view",
 		},
-		RoomTypes: []ShijiRoomTypeConfig{
-			{"客房", "舒适温馨的标准客房，配备希尔顿特色睡床和现代化设施。享受优质睡眠体验，是商务出行的理想选择。", 1.0, 2, 32, "大床/双床", "免费WiFi, 中央空调, 希尔顿睡床, 智能电视, 24小时热水, 迷你吧, 保险箱, 熨斗, 浴袍拖鞋, 免费咖啡茶包"},
-			{"豪华客房", "宽敞的豪华客房，配备高品质家具和现代化设施。享有城市美景，提供更舒适的住宿体验。", 1.3, 2, 40, "大床/双床", "免费WiFi, 中央空调, 希尔顿睡床, 智能电视, 24小时热水, 迷你吧, 保险箱, 熨斗, 浴袍拖鞋"},
-			{"行政客房", "位于行政楼层的高级客房，可享受行政酒廊服务。配备办公区域和高速网络，专为商务旅客设计。", 1.6, 2, 45, "大床/双床", "免费WiFi, 中央空调, 希尔顿睡床, 智能电视, 24小时热水, 迷你吧, 保险箱, 熨斗, 浴袍拖鞋, 行政酒廊礼遇"},
-			{"套房", "独立客厅与卧室的豪华套房，空间宽敞明亮。配备高品质家具和现代化设施，享受尊贵住宿体验。", 2.2, 2, 60, "大床", "免费WiFi, 中央空调, 希尔顿睡床, 智能电视, 24小时热水, 迷你吧, 保险箱, 熨斗, 浴袍拖鞋, 独立客厅"},
-			{"总统套房", "顶级总统套房，拥有宽敞的客厅、卧室和餐厅。配备奢华家具和私人管家服务，是尊贵宾客的首选。", 5.0, 4, 150, "大床", "免费WiFi, 中央空调, 奢华睡床, 智能电视, 24小时热水, 迷你吧, 保险箱, 熨斗, 浴袍拖鞋, 私人管家服务, 专属餐厅"},
+		RoomTypeConfigs: []ShijiRoomTypeStaticConfig{
+			{"客房", "舒适温馨的标准客房，配备希尔顿特色睡床和现代化设施。享受优质睡眠体验，是商务出行的理想选择。", 2, 32, "大床/双床", "免费WiFi, 中央空调, 希尔顿睡床, 智能电视, 24小时热水, 迷你吧, 保险箱, 熨斗, 浴袍拖鞋, 免费咖啡茶包", 480, 1.0},
+			{"豪华客房", "宽敞的豪华客房，配备高品质家具和现代化设施。享有城市美景，提供更舒适的住宿体验。", 2, 40, "大床/双床", "免费WiFi, 中央空调, 希尔顿睡床, 智能电视, 24小时热水, 迷你吧, 保险箱, 熨斗, 浴袍拖鞋", 480, 1.3},
+			{"行政客房", "位于行政楼层的高级客房，可享受行政酒廊服务。配备办公区域和高速网络，专为商务旅客设计。", 2, 45, "大床/双床", "免费WiFi, 中央空调, 希尔顿睡床, 智能电视, 24小时热水, 迷你吧, 保险箱, 熨斗, 浴袍拖鞋, 行政酒廊礼遇", 480, 1.6},
+			{"套房", "独立客厅与卧室的豪华套房，空间宽敞明亮。配备高品质家具和现代化设施，享受尊贵住宿体验。", 2, 60, "大床", "免费WiFi, 中央空调, 希尔顿睡床, 智能电视, 24小时热水, 迷你吧, 保险箱, 熨斗, 浴袍拖鞋, 独立客厅", 480, 2.2},
+			{"总统套房", "顶级总统套房，拥有宽敞的客厅、卧室和餐厅。配备奢华家具和私人管家服务，是尊贵宾客的首选。", 4, 150, "大床", "免费WiFi, 中央空调, 奢华睡床, 智能电视, 24小时热水, 迷你吧, 保险箱, 熨斗, 浴袍拖鞋, 私人管家服务, 专属餐厅", 480, 5.0},
 		},
 	},
 	{
@@ -281,12 +348,12 @@ var ShijiSubSuppliers = []ShijiSubSupplierConfig{
 			"hotel indigo local art display",
 			"ihg rewards club lounge",
 		},
-		RoomTypes: []ShijiRoomTypeConfig{
-			{"标准房", "舒适的标准客房，配备优质床品和基本设施。干净整洁，是商务出行的经济实惠选择。", 1.0, 2, 28, "大床/双床", "免费WiFi, 中央空调, 优质睡床, 智能电视, 24小时热水, 迷你吧, 保险箱, 熨斗, 浴袍拖鞋"},
-			{"豪华房", "宽敞的豪华客房，配备高品质家具和现代化设施。享受城市美景，提供更舒适的住宿体验。", 1.25, 2, 36, "大床/双床", "免费WiFi, 中央空调, 优质睡床, 智能电视, 24小时热水, 迷你吧, 保险箱, 熨斗, 浴袍拖鞋"},
-			{"行政房", "位于行政楼层的高级客房，可享受行政俱乐部服务。配备办公区域，专为商务旅客设计。", 1.5, 2, 42, "大床/双床", "免费WiFi, 中央空调, 优质睡床, 智能电视, 24小时热水, 迷你吧, 保险箱, 熨斗, 浴袍拖鞋, 行政俱乐部礼遇"},
-			{"套房", "独立客厅与卧室的豪华套房，空间宽敞明亮。配备高品质家具，享受尊贵住宿体验。", 2.0, 2, 58, "大床", "免费WiFi, 中央空调, 奢华睡床, 智能电视, 24小时热水, 迷你吧, 保险箱, 熨斗, 浴袍拖鞋, 独立客厅"},
-			{"洲际套房", "高端洲际套房，拥有宽敞的客厅、卧室和餐厅。配备奢华家具和专属服务，是尊贵宾客的首选。", 3.5, 3, 100, "大床", "免费WiFi, 中央空调, 奢华睡床, 智能电视, 24小时热水, 迷你吧, 保险箱, 熨斗, 浴袍拖鞋, 私人管家服务"},
+		RoomTypeConfigs: []ShijiRoomTypeStaticConfig{
+			{"标准房", "舒适的标准客房，配备优质床品和基本设施。干净整洁，是商务出行的经济实惠选择。", 2, 28, "大床/双床", "免费WiFi, 中央空调, 优质睡床, 智能电视, 24小时热水, 迷你吧, 保险箱, 熨斗, 浴袍拖鞋", 450, 1.0},
+			{"豪华房", "宽敞的豪华客房，配备高品质家具和现代化设施。享受城市美景，提供更舒适的住宿体验。", 2, 36, "大床/双床", "免费WiFi, 中央空调, 优质睡床, 智能电视, 24小时热水, 迷你吧, 保险箱, 熨斗, 浴袍拖鞋", 450, 1.25},
+			{"行政房", "位于行政楼层的高级客房，可享受行政俱乐部服务。配备办公区域，专为商务旅客设计。", 2, 42, "大床/双床", "免费WiFi, 中央空调, 优质睡床, 智能电视, 24小时热水, 迷你吧, 保险箱, 熨斗, 浴袍拖鞋, 行政俱乐部礼遇", 450, 1.5},
+			{"套房", "独立客厅与卧室的豪华套房，空间宽敞明亮。配备高品质家具，享受尊贵住宿体验。", 2, 58, "大床", "免费WiFi, 中央空调, 奢华睡床, 智能电视, 24小时热水, 迷你吧, 保险箱, 熨斗, 浴袍拖鞋, 独立客厅", 450, 2.0},
+			{"洲际套房", "高端洲际套房，拥有宽敞的客厅、卧室和餐厅。配备奢华家具和专属服务，是尊贵宾客的首选。", 3, 100, "大床", "免费WiFi, 中央空调, 奢华睡床, 智能电视, 24小时热水, 迷你吧, 保险箱, 熨斗, 浴袍拖鞋, 私人管家服务", 450, 3.5},
 		},
 	},
 	{
@@ -318,12 +385,12 @@ var ShijiSubSuppliers = []ShijiSubSupplierConfig{
 			"kaiyuan hotel chinese restaurant",
 			"kaiyuan wellness spa area",
 		},
-		RoomTypes: []ShijiRoomTypeConfig{
-			{"标准双床房", "舒适的标准双床房，配备开元特色睡床和现代化设施。房间干净整洁，是商务出行的理想选择。", 1.0, 2, 26, "双床", "免费WiFi, 中央空调, 开元睡床, 智能电视, 24小时热水, 迷你吧, 保险箱, 熨斗, 浴袍拖鞋, 免费茶包"},
-			{"豪华大床房", "宽敞的豪华大床房，配备高品质家具和现代化设施。享受城市美景，提供更舒适的住宿体验。", 1.2, 2, 32, "大床", "免费WiFi, 中央空调, 开元睡床, 智能电视, 24小时热水, 迷你吧, 保险箱, 熨斗, 浴袍拖鞋"},
-			{"行政客房", "位于行政楼层的高级客房，可享受行政酒廊服务。配备办公区域，专为商务旅客设计。", 1.5, 2, 38, "大床/双床", "免费WiFi, 中央空调, 开元睡床, 智能电视, 24小时热水, 迷你吧, 保险箱, 熨斗, 浴袍拖鞋, 行政酒廊礼遇"},
-			{"豪华套房", "独立客厅与卧室的豪华套房，空间宽敞明亮。配备高品质家具和现代化设施，享受尊贵住宿体验。", 2.0, 2, 52, "大床", "免费WiFi, 中央空调, 奢华睡床, 智能电视, 24小时热水, 迷你吧, 保险箱, 熨斗, 浴袍拖鞋, 独立客厅"},
-			{"总统套房", "顶级总统套房，拥有宽敞的客厅、卧室和餐厅。配备奢华家具和专属服务，是尊贵宾客的首选。", 4.0, 4, 120, "大床", "免费WiFi, 中央空调, 奢华睡床, 智能电视, 24小时热水, 迷你吧, 保险箱, 熨斗, 浴袍拖鞋, 私人管家服务"},
+		RoomTypeConfigs: []ShijiRoomTypeStaticConfig{
+			{"标准双床房", "舒适的标准双床房，配备开元特色睡床和现代化设施。房间干净整洁，是商务出行的理想选择。", 2, 26, "双床", "免费WiFi, 中央空调, 开元睡床, 智能电视, 24小时热水, 迷你吧, 保险箱, 熨斗, 浴袍拖鞋, 免费茶包", 380, 1.0},
+			{"豪华大床房", "宽敞的豪华大床房，配备高品质家具和现代化设施。享受城市美景，提供更舒适的住宿体验。", 2, 32, "大床", "免费WiFi, 中央空调, 开元睡床, 智能电视, 24小时热水, 迷你吧, 保险箱, 熨斗, 浴袍拖鞋", 380, 1.2},
+			{"行政客房", "位于行政楼层的高级客房，可享受行政酒廊服务。配备办公区域，专为商务旅客设计。", 2, 38, "大床/双床", "免费WiFi, 中央空调, 开元睡床, 智能电视, 24小时热水, 迷你吧, 保险箱, 熨斗, 浴袍拖鞋, 行政酒廊礼遇", 380, 1.5},
+			{"豪华套房", "独立客厅与卧室的豪华套房，空间宽敞明亮。配备高品质家具和现代化设施，享受尊贵住宿体验。", 2, 52, "大床", "免费WiFi, 中央空调, 奢华睡床, 智能电视, 24小时热水, 迷你吧, 保险箱, 熨斗, 浴袍拖鞋, 独立客厅", 380, 2.0},
+			{"总统套房", "顶级总统套房，拥有宽敞的客厅、卧室和餐厅。配备奢华家具和专属服务，是尊贵宾客的首选。", 4, 120, "大床", "免费WiFi, 中央空调, 奢华睡床, 智能电视, 24小时热水, 迷你吧, 保险箱, 熨斗, 浴袍拖鞋, 私人管家服务", 380, 4.0},
 		},
 	},
 	{
@@ -355,11 +422,11 @@ var ShijiSubSuppliers = []ShijiSubSupplierConfig{
 			"wanda presidential suite",
 			"wanda hotel spa wellness",
 		},
-		RoomTypes: []ShijiRoomTypeConfig{
-			{"豪华大床房", "宽敞舒适的豪华大床房，配备万达特色睡床和现代化设施。房间设计典雅，是商务出行的理想选择。", 1.0, 2, 30, "大床", "免费WiFi, 中央空调, 万达睡床, 智能电视, 24小时热水, 迷你吧, 保险箱, 熨斗, 浴袍拖鞋, 免费矿泉水"},
-			{"行政套房", "位于行政楼层的高级套房，独立客厅与卧室。可享受行政酒廊服务，专为商务精英打造。", 1.8, 2, 48, "大床", "免费WiFi, 中央空调, 奢华睡床, 智能电视, 24小时热水, 迷你吧, 保险箱, 熨斗, 浴袍拖鞋, 行政酒廊礼遇"},
-			{"豪华套房", "宽敞的豪华套房，独立客厅与卧室，配备高品质家具。享受城市美景，提供尊贵的住宿体验。", 2.5, 2, 65, "大床", "免费WiFi, 中央空调, 奢华睡床, 智能电视, 24小时热水, 迷你吧, 保险箱, 熨斗, 浴袍拖鞋, 独立客厅"},
-			{"总统套房", "顶级总统套房，拥有宽敞的客厅、卧室、餐厅和书房。配备奢华家具和私人管家服务，是尊贵宾客的首选。", 5.0, 4, 180, "大床", "免费WiFi, 中央空调, 奢华睡床, 智能电视, 24小时热水, 迷你吧, 保险箱, 熨斗, 浴袍拖鞋, 私人管家服务, 专属餐厅"},
+		RoomTypeConfigs: []ShijiRoomTypeStaticConfig{
+			{"豪华大床房", "宽敞舒适的豪华大床房，配备万达特色睡床和现代化设施。房间设计典雅，是商务出行的理想选择。", 2, 30, "大床", "免费WiFi, 中央空调, 万达睡床, 智能电视, 24小时热水, 迷你吧, 保险箱, 熨斗, 浴袍拖鞋, 免费矿泉水", 420, 1.0},
+			{"行政套房", "位于行政楼层的高级套房，独立客厅与卧室。可享受行政酒廊服务，专为商务精英打造。", 2, 48, "大床", "免费WiFi, 中央空调, 奢华睡床, 智能电视, 24小时热水, 迷你吧, 保险箱, 熨斗, 浴袍拖鞋, 行政酒廊礼遇", 420, 1.8},
+			{"豪华套房", "宽敞的豪华套房，独立客厅与卧室，配备高品质家具。享受城市美景，提供尊贵的住宿体验。", 2, 65, "大床", "免费WiFi, 中央空调, 奢华睡床, 智能电视, 24小时热水, 迷你吧, 保险箱, 熨斗, 浴袍拖鞋, 独立客厅", 420, 2.5},
+			{"总统套房", "顶级总统套房，拥有宽敞的客厅、卧室、餐厅和书房。配备奢华家具和私人管家服务，是尊贵宾客的首选。", 4, 180, "大床", "免费WiFi, 中央空调, 奢华睡床, 智能电视, 24小时热水, 迷你吧, 保险箱, 熨斗, 浴袍拖鞋, 私人管家服务, 专属餐厅", 420, 5.0},
 		},
 	},
 	{
@@ -391,12 +458,12 @@ var ShijiSubSuppliers = []ShijiSubSupplierConfig{
 			"greenland family friendly suite",
 			"greenland eco hotel design",
 		},
-		RoomTypes: []ShijiRoomTypeConfig{
-			{"标准双床房", "舒适的标准双床房，配备优质床品和现代化设施。房间干净整洁，是商务出行的经济实惠选择。", 1.0, 2, 24, "双床", "免费WiFi, 中央空调, 优质睡床, 智能电视, 24小时热水, 迷你吧, 保险箱, 熨斗, 浴袍拖鞋"},
-			{"豪华大床房", "宽敞的豪华大床房，配备高品质家具和现代化设施。享受城市美景，提供更舒适的住宿体验。", 1.15, 2, 30, "大床", "免费WiFi, 中央空调, 优质睡床, 智能电视, 24小时热水, 迷你吧, 保险箱, 熨斗, 浴袍拖鞋"},
-			{"行政客房", "位于行政楼层的高级客房，可享受行政服务。配备办公区域，专为商务旅客设计。", 1.4, 2, 36, "大床/双床", "免费WiFi, 中央空调, 优质睡床, 智能电视, 24小时热水, 迷你吧, 保险箱, 熨斗, 浴袍拖鞋, 行政服务"},
-			{"豪华套房", "独立客厅与卧室的豪华套房，空间宽敞明亮。配备高品质家具，享受尊贵住宿体验。", 1.8, 2, 48, "大床", "免费WiFi, 中央空调, 奢华睡床, 智能电视, 24小时热水, 迷你吧, 保险箱, 熨斗, 浴袍拖鞋, 独立客厅"},
-			{"总统套房", "顶级总统套房，拥有宽敞的客厅、卧室和餐厅。配备奢华家具和专属服务，是尊贵宾客的首选。", 3.5, 4, 100, "大床", "免费WiFi, 中央空调, 奢华睡床, 智能电视, 24小时热水, 迷你吧, 保险箱, 熨斗, 浴袍拖鞋, 私人管家服务"},
+		RoomTypeConfigs: []ShijiRoomTypeStaticConfig{
+			{"标准双床房", "舒适的标准双床房，配备优质床品和现代化设施。房间干净整洁，是商务出行的经济实惠选择。", 2, 24, "双床", "免费WiFi, 中央空调, 优质睡床, 智能电视, 24小时热水, 迷你吧, 保险箱, 熨斗, 浴袍拖鞋", 350, 1.0},
+			{"豪华大床房", "宽敞的豪华大床房，配备高品质家具和现代化设施。享受城市美景，提供更舒适的住宿体验。", 2, 30, "大床", "免费WiFi, 中央空调, 优质睡床, 智能电视, 24小时热水, 迷你吧, 保险箱, 熨斗, 浴袍拖鞋", 350, 1.15},
+			{"行政客房", "位于行政楼层的高级客房，可享受行政服务。配备办公区域，专为商务旅客设计。", 2, 36, "大床/双床", "免费WiFi, 中央空调, 优质睡床, 智能电视, 24小时热水, 迷你吧, 保险箱, 熨斗, 浴袍拖鞋, 行政服务", 350, 1.4},
+			{"豪华套房", "独立客厅与卧室的豪华套房，空间宽敞明亮。配备高品质家具，享受尊贵住宿体验。", 2, 48, "大床", "免费WiFi, 中央空调, 奢华睡床, 智能电视, 24小时热水, 迷你吧, 保险箱, 熨斗, 浴袍拖鞋, 独立客厅", 350, 1.8},
+			{"总统套房", "顶级总统套房，拥有宽敞的客厅、卧室和餐厅。配备奢华家具和专属服务，是尊贵宾客的首选。", 4, 100, "大床", "免费WiFi, 中央空调, 奢华睡床, 智能电视, 24小时热水, 迷你吧, 保险箱, 熨斗, 浴袍拖鞋, 私人管家服务", 350, 3.5},
 		},
 	},
 }
