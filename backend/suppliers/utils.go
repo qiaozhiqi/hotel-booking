@@ -89,6 +89,90 @@ func getHotelImageURL(supplierCode string, index int) string {
 			"luxury hotel amenities premium",
 			"world class hotel exterior iconic",
 		},
+		"shiji_marriott": {
+			"marriott luxury hotel grand lobby chandelier",
+			"elegant hotel entrance with valet parking",
+			"modern skyscraper hotel night view city lights",
+			"luxury hotel suite marble bathroom",
+			"ritz carlton style lobby with classical decor",
+			"sheraton hotel exterior glass facade",
+			"westin hotel lobby with modern art",
+			"jw marriott executive lounge view",
+			"courtyard by marriott exterior clean design",
+			"renaissance hotel boutique style interior",
+			"marriott resort infinity pool ocean view",
+			"marriott bonvoy elite lounge",
+		},
+		"shiji_hilton": {
+			"hilton hotel grand lobby marble columns",
+			"waldorf astoria luxury entrance",
+			"conrad hotel modern minimalist design",
+			"hilton suite with panoramic city view",
+			"doubletree by hilton warm welcoming lobby",
+			"hilton garden inn modern exterior",
+			"hampton by hilton bright clean interior",
+			"canopy by hilton boutique style lobby",
+			"hilton executive club lounge",
+			"waldorf astoria presidential suite",
+			"conrad hotel art collection display",
+			"hilton resort beachfront view",
+		},
+		"shiji_ihg": {
+			"intercontinental hotel grand lobby",
+			"crowne plaza business hotel exterior",
+			"holiday inn modern family friendly lobby",
+			"holiday inn express clean simple design",
+			"hotel indigo boutique style interior",
+			"voco hotel colorful vibrant lobby",
+			"even wellness hotel fitness area",
+			"intercontinental suite luxury decor",
+			"crowne plaza club lounge",
+			"holiday inn family suite",
+			"hotel indigo local art display",
+			"ihg rewards club lounge",
+		},
+		"shiji_kaiyuan": {
+			"kaiyuan chinese luxury hotel lobby",
+			"new century grand hotel entrance",
+			"kaiyuan resort with chinese garden",
+			"kaiyuan mingting business hotel",
+			"kaiyuan manju boutique hotel",
+			"kaiyuan yiju eco hotel",
+			"kaiyuan senbo resort water park",
+			"kaiyuan luxury suite oriental style",
+			"kaiyuan executive lounge",
+			"kaiyuan resort mountain view",
+			"kaiyuan hotel chinese restaurant",
+			"kaiyuan wellness spa area",
+		},
+		"shiji_wanda": {
+			"wanda vista luxury hotel grand lobby",
+			"wanda realm hotel elegant entrance",
+			"wanda jinjiang business hotel",
+			"wanda mehua modern design hotel",
+			"wanda yihua boutique hotel",
+			"wanda yuehua budget hotel",
+			"wanda suite oriental luxury style",
+			"wanda executive club lounge",
+			"wanda hotel ballroom entrance",
+			"wanda resort infinity pool",
+			"wanda presidential suite",
+			"wanda hotel spa wellness",
+		},
+		"shiji_lvdi": {
+			"greenland primus luxury hotel lobby",
+			"greenland qhotel modern entrance",
+			"greenland holiday hotel exterior",
+			"greenland kangyangju wellness hotel",
+			"greenland moqi boutique hotel",
+			"greenland suite contemporary design",
+			"greenland executive lounge",
+			"greenland business center",
+			"greenland resort garden view",
+			"greenland hotel restaurant interior",
+			"greenland family friendly suite",
+			"greenland eco hotel design",
+		},
 	}
 	
 	supplierThemes, ok := themes[supplierCode]
@@ -120,4 +204,11 @@ func InitSuppliers() {
 	RegisterAdapter(NewHuazhuAdapter())
 	RegisterAdapter(NewRuJiaAdapter())
 	RegisterAdapter(NewJinJiangAdapter())
+	
+	RegisterAdapter(NewShijiMarriottAdapter())
+	RegisterAdapter(NewShijiHiltonAdapter())
+	RegisterAdapter(NewShijiIHGAdapter())
+	RegisterAdapter(NewShijiKaiyuanAdapter())
+	RegisterAdapter(NewShijiWandaAdapter())
+	RegisterAdapter(NewShijiLvdiAdapter())
 }
