@@ -168,6 +168,24 @@ func initDatabaseTables() error {
 			)
 		`
 		
+		createPriceInventorySQL := `
+			CREATE TABLE IF NOT EXISTS price_inventory (
+				id INTEGER PRIMARY KEY AUTOINCREMENT,
+				supplier_id INTEGER NOT NULL,
+				supplier_hotel_id TEXT NOT NULL,
+				supplier_room_id TEXT NOT NULL,
+				date TEXT NOT NULL,
+				price REAL NOT NULL DEFAULT 0.0,
+				original_price REAL NOT NULL DEFAULT 0.0,
+				available_count INTEGER NOT NULL DEFAULT 0,
+				total_count INTEGER NOT NULL DEFAULT 0,
+				status TEXT DEFAULT 'active',
+				created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+				updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+				UNIQUE(supplier_id, supplier_hotel_id, supplier_room_id, date)
+			)
+		`
+		
 		db.Exec(createUsersSQL)
 		db.Exec(createHotelsSQL)
 		db.Exec(createRoomsSQL)
@@ -175,6 +193,7 @@ func initDatabaseTables() error {
 		db.Exec(createSuppliersSQL)
 		db.Exec(createSupplierHotelsSQL)
 		db.Exec(createSupplierRoomsSQL)
+		db.Exec(createPriceInventorySQL)
 	} else {
 		createSuppliersSQL := `
 			CREATE TABLE IF NOT EXISTS suppliers (
@@ -237,9 +256,30 @@ func initDatabaseTables() error {
 			) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
 		`
 		
+		createPriceInventorySQL := `
+			CREATE TABLE IF NOT EXISTS price_inventory (
+				id INT AUTO_INCREMENT PRIMARY KEY,
+				supplier_id INT NOT NULL,
+				supplier_hotel_id VARCHAR(100) NOT NULL,
+				supplier_room_id VARCHAR(100) NOT NULL,
+				date DATE NOT NULL,
+				price DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+				original_price DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+				available_count INT NOT NULL DEFAULT 0,
+				total_count INT NOT NULL DEFAULT 0,
+				status ENUM('active', 'inactive') DEFAULT 'active',
+				created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+				updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+				UNIQUE KEY uk_price_inventory_date (supplier_id, supplier_hotel_id, supplier_room_id, date),
+				KEY idx_supplier_date (supplier_id, date),
+				KEY idx_hotel_room_date (supplier_hotel_id, supplier_room_id, date)
+			) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+		`
+		
 		db.Exec(createSuppliersSQL)
 		db.Exec(createSupplierHotelsSQL)
 		db.Exec(createSupplierRoomsSQL)
+		db.Exec(createPriceInventorySQL)
 	}
 	
 	return nil
@@ -254,6 +294,7 @@ func getSupplierPriority(code string) int {
 		"shiji_kaiyuan":  6,
 		"shiji_lvdi":     5,
 		"huazhu":         4,
+		"shiji_qiuguo":   3,
 		"jinjiang":       3,
 		"rujia":          2,
 	}
@@ -272,6 +313,7 @@ func getSupplierPriceControl(code string) float64 {
 		"shiji_kaiyuan":  1.02,
 		"shiji_lvdi":     1.00,
 		"huazhu":         0.95,
+		"shiji_qiuguo":   0.90,
 		"jinjiang":       0.92,
 		"rujia":          0.88,
 	}

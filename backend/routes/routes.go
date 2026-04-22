@@ -47,6 +47,15 @@ func SetupRouter() *gin.Engine {
 		api.POST("/suppliers/:code/pull", controllers.PullSupplierData)
 		api.GET("/suppliers/:code/status", controllers.GetSyncStatus)
 
+		shiji := api.Group("/shiji")
+		{
+			qiuguo := shiji.Group("/qiuguo")
+			{
+				qiuguo.POST("/push", controllers.HandleQiuguoPush)
+				qiuguo.GET("/status", controllers.GetQiuguoSyncStatus)
+			}
+		}
+
 		mock := api.Group("/mock")
 		{
 			mock.GET("/huazhu/hotels", controllers.MockHuazhuGetHotels)

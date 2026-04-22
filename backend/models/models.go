@@ -189,3 +189,71 @@ type RoomWithChannelPrices struct {
 	BestPrice      float64        `json:"best_price"`
 	ChannelPrices  []ChannelPrice `json:"channel_prices"`
 }
+
+type PriceInventory struct {
+	ID             int       `json:"id"`
+	SupplierID     int       `json:"supplier_id"`
+	SupplierHotelID string   `json:"supplier_hotel_id"`
+	SupplierRoomID string    `json:"supplier_room_id"`
+	Date           string    `json:"date"`
+	Price          float64   `json:"price"`
+	OriginalPrice  float64   `json:"original_price"`
+	AvailableCount int       `json:"available_count"`
+	TotalCount     int       `json:"total_count"`
+	Status         string    `json:"status"`
+	CreatedAt      time.Time `json:"created_at"`
+	UpdatedAt      time.Time `json:"updated_at"`
+}
+
+type QiuguoPushHotelData struct {
+	SupplierHotelID string                    `json:"hotel_id" binding:"required"`
+	Name            string                    `json:"name" binding:"required"`
+	City            string                    `json:"city"`
+	Address         string                    `json:"address"`
+	Description     string                    `json:"description"`
+	Rating          float64                   `json:"rating"`
+	ImageURL        string                    `json:"image_url"`
+	PriceRange      string                    `json:"price_range"`
+	Rooms           []QiuguoPushRoomData      `json:"rooms"`
+}
+
+type QiuguoPushRoomData struct {
+	SupplierRoomID string `json:"room_id" binding:"required"`
+	Name           string `json:"name" binding:"required"`
+	Description    string `json:"description"`
+	Capacity       int    `json:"capacity"`
+	Area           int    `json:"area"`
+	BedType        string `json:"bed_type"`
+	Amenities      string `json:"amenities"`
+	ImageURL       string `json:"image_url"`
+	TotalCount     int    `json:"total_count"`
+}
+
+type QiuguoPushPriceInventoryData struct {
+	SupplierHotelID string  `json:"hotel_id" binding:"required"`
+	SupplierRoomID  string  `json:"room_id" binding:"required"`
+	Date            string  `json:"date" binding:"required"`
+	Price           float64 `json:"price" binding:"required"`
+	OriginalPrice   float64 `json:"original_price"`
+	AvailableCount  int     `json:"available_count" binding:"required"`
+	TotalCount      int     `json:"total_count"`
+}
+
+type QiuguoPushRequest struct {
+	RequestID       string                       `json:"request_id" binding:"required"`
+	PushType        string                       `json:"push_type"`
+	Hotels          []QiuguoPushHotelData        `json:"hotels"`
+	PriceInventories []QiuguoPushPriceInventoryData `json:"price_inventories"`
+	StartDate       string                       `json:"start_date"`
+	EndDate         string                       `json:"end_date"`
+}
+
+type QiuguoPushResponse struct {
+	RequestID    string `json:"request_id"`
+	Success      bool   `json:"success"`
+	Code         int    `json:"code"`
+	Message      string `json:"message"`
+	ProcessedCount int  `json:"processed_count,omitempty"`
+	FailedCount  int    `json:"failed_count,omitempty"`
+	ErrorDetails []string `json:"error_details,omitempty"`
+}
