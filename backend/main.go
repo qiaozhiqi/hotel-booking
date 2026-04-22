@@ -313,6 +313,43 @@ func initSupplierRecords() error {
 	return nil
 }
 
+func initTestUsers() error {
+	db := database.GetDB()
+	
+	testUsers := []struct {
+		username string
+		password string
+		email    string
+		phone    string
+	}{
+		{"admin", "admin123", "admin@example.com", "13800138001"},
+		{"testuser", "test123", "test@example.com", "13800138002"},
+	}
+	
+	for _, u := range testUsers {
+		var count int
+		err := db.QueryRow("SELECT COUNT(*) FROM users WHERE username = ?", u.username).Scan(&count)
+		if err != nil {
+			log.Printf("检查用户 %s 失败: %v", u.username, err)
+			continue
+		}
+		
+		if count == 0 {
+			_, err = db.Exec(`
+				INSERT INTO users (username, password, email, phone)
+				VALUES (?, ?, ?, ?)`,
+				u.username, u.password, u.email, u.phone)
+			if err != nil {
+				log.Printf("初始化用户 %s 失败: %v", u.username, err)
+			} else {
+				log.Printf("已注册测试用户: %s", u.username)
+			}
+		}
+	}
+	
+	return nil
+}
+
 func pullAndSyncSupplier(adapter suppliers.SupplierAdapter) (int, error) {
 	db := database.GetDB()
 	
@@ -451,6 +488,11 @@ func main() {
 	err = initSupplierRecords()
 	if err != nil {
 		log.Printf("供应商记录初始化警告: %v", err)
+	}
+	
+	err = initTestUsers()
+	if err != nil {
+		log.Printf("测试用户初始化警告: %v", err)
 	}
 	
 	autoPullAllSuppliers()
