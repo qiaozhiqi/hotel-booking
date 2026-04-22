@@ -4,16 +4,14 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
-	"hotel-booking/cache"
-	"hotel-booking/config"
 	"hotel-booking/database"
 	"hotel-booking/models"
+	"hotel-booking/services"
 	"log"
 	"net/http"
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/go-redis/redis/v8"
 )
 
 const (
@@ -283,139 +281,16 @@ func processQiuguoHotel(supplierID int, hotel models.QiuguoPushHotelData) error 
 }
 
 func processQiuguoPriceInventory(supplierID int, pi models.QiuguoPushPriceInventoryData) error {
-	cfg := config.GetConfig()
-	db := database.GetDB()
-
-	originalPrice := pi.OriginalPrice
-	if originalPrice == 0 {
-		originalPrice = pi.Price
-	}
-
-	totalCount := pi.TotalCount
-	if totalCount == 0 {
-		totalCount = 10
-	}
-
-	if cfg.EnableRedisCache && cache.GetRedis() != nil {
-		err := cache.SetPriceInventory(supplierID, pi)
-		if err != nil {
-			log.Printf("写入Redis价格库存失败: %v", err)
-		} else {
-			log.Printf("Redis缓存价格库存: hotel_id=%s, room_id=%s, date=%s, price=%.2f, available=%d",
-				pi.SupplierHotelID, pi.SupplierRoomID, pi.Date, pi.Price, pi.AvailableCount)
-		}
-	}
-
-	var existingID int
-	err := db.QueryRow(`
-		SELECT id FROM price_inventory 
-		WHERE supplier_id = ? AND supplier_hotel_id = ? AND supplier_room_id = ? AND date = ?`,
-		supplierID, pi.SupplierHotelID, pi.SupplierRoomID, pi.Date).Scan(&existingID)
-
-	if err == sql.ErrNoRows {
-		_, err = db.Exec(`
-			INSERT INTO price_inventory (supplier_id, supplier_hotel_id, supplier_room_id, date, 
-			price, original_price, available_count, total_count, status)
-			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-			supplierID, pi.SupplierHotelID, pi.SupplierRoomID, pi.Date,
-			pi.Price, originalPrice, pi.AvailableCount, totalCount, "active")
-		if err != nil {
-			return err
-		}
-		log.Printf("新增秋果价格库存(数据库): hotel_id=%s, room_id=%s, date=%s, price=%.2f, available=%d",
-			pi.SupplierHotelID, pi.SupplierRoomID, pi.Date, pi.Price, pi.AvailableCount)
-	} else if err == nil {
-		_, err = db.Exec(`
-			UPDATE price_inventory SET price = ?, original_price = ?, available_count = ?, 
-			total_count = ?, status = ?, updated_at = ? WHERE id = ?`,
-			pi.Price, originalPrice, pi.AvailableCount, totalCount, "active", time.Now(), existingID)
-		if err != nil {
-			return err
-		}
-		log.Printf("更新秋果价格库存(数据库): hotel_id=%s, room_id=%s, date=%s, price=%.2f, available=%d",
-			pi.SupplierHotelID, pi.SupplierRoomID, pi.Date, pi.Price, pi.AvailableCount)
-	} else {
-		return err
-	}
-
-	err = updateRoomCurrentPrice(supplierID, pi.SupplierHotelID, pi.SupplierRoomID)
-	if err != nil {
-		log.Printf("更新房间当前价格失败: %v", err)
-	}
-
-	return nil
+	piService := services.NewPriceInventoryService()
+	return piService.SavePriceInventory(supplierID, pi)
 }
 
 func updateRoomCurrentPrice(supplierID int, supplierHotelID, supplierRoomID string) error {
-	cfg := config.GetConfig()
-	db := database.GetDB()
-
-	today := time.Now().Format("2006-01-02")
-
-	var currentPrice float64
-	var currentAvailable int
-	var found bool
-
-	if cfg.EnableRedisCache && cache.GetRedis() != nil {
-		pi, err := cache.GetPriceInventory(supplierID, supplierHotelID, supplierRoomID, today)
-		if err == nil && pi != nil {
-			currentPrice = pi.Price
-			currentAvailable = pi.AvailableCount
-			found = true
-			log.Printf("从Redis获取价格库存: hotel_id=%s, room_id=%s, date=%s, price=%.2f, available=%d",
-				supplierHotelID, supplierRoomID, today, currentPrice, currentAvailable)
-		} else if err != redis.Nil {
-			log.Printf("从Redis获取价格库存失败: %v", err)
-		}
-	}
-
-	if !found {
-		err := db.QueryRow(`
-			SELECT price, available_count FROM price_inventory 
-			WHERE supplier_id = ? AND supplier_hotel_id = ? AND supplier_room_id = ? AND date = ?`,
-			supplierID, supplierHotelID, supplierRoomID, today).Scan(&currentPrice, &currentAvailable)
-
-		if err == sql.ErrNoRows {
-			return nil
-		}
-		if err != nil {
-			return err
-		}
-		log.Printf("从数据库获取价格库存: hotel_id=%s, room_id=%s, date=%s, price=%.2f, available=%d",
-			supplierHotelID, supplierRoomID, today, currentPrice, currentAvailable)
-	}
-
-	var localRoomID int
-	err := db.QueryRow(`
-		SELECT local_room_id FROM supplier_rooms 
-		WHERE supplier_id = ? AND supplier_hotel_id = ? AND supplier_room_id = ?`,
-		supplierID, supplierHotelID, supplierRoomID).Scan(&localRoomID)
-
-	if err == sql.ErrNoRows {
-		return nil
-	}
-	if err != nil {
-		return err
-	}
-
-	_, err = db.Exec(`
-		UPDATE rooms SET price = ?, available_count = ?, updated_at = ? WHERE id = ?`,
-		currentPrice, currentAvailable, time.Now(), localRoomID)
-
-	if err != nil {
-		return err
-	}
-
-	_, err = db.Exec(`
-		UPDATE supplier_rooms SET price = ?, available_count = ?, updated_at = ? 
-		WHERE supplier_id = ? AND supplier_hotel_id = ? AND supplier_room_id = ?`,
-		currentPrice, currentAvailable, time.Now(), supplierID, supplierHotelID, supplierRoomID)
-
-	return err
+	piService := services.NewPriceInventoryService()
+	return piService.UpdateRoomCurrentPrice(supplierID, supplierHotelID, supplierRoomID)
 }
 
 func GetQiuguoSyncStatus(c *gin.Context) {
-	cfg := config.GetConfig()
 	db := database.GetDB()
 
 	var supplierID int
@@ -450,72 +325,27 @@ func GetQiuguoSyncStatus(c *gin.Context) {
 	var roomCount int
 	db.QueryRow("SELECT COUNT(*) FROM supplier_rooms WHERE supplier_id = ?", supplierID).Scan(&roomCount)
 
-	var priceInventoryCount int64
-	var minDate, maxDate string
-	var lastSyncTime string
-	var fromRedis bool
-
-	if cfg.EnableRedisCache && cache.GetRedis() != nil {
-		var err error
-		priceInventoryCount, err = cache.GetPriceInventoryCount(supplierID)
-		if err == nil {
-			minDate, maxDate, err = cache.GetPriceInventoryDateRange(supplierID)
-			if err == nil {
-				lastSyncTime, err = cache.GetPriceInventoryLastUpdate(supplierID)
-				if err == nil {
-					fromRedis = true
-					log.Printf("从Redis获取同步状态: count=%d, min=%s, max=%s, last=%s",
-						priceInventoryCount, minDate, maxDate, lastSyncTime)
-				}
-			}
-		}
-		if err != nil {
-			log.Printf("从Redis获取同步状态失败: %v", err)
-		}
+	piService := services.NewPriceInventoryService()
+	syncStatus, err := piService.GetSyncStatus(supplierID)
+	if err != nil {
+		log.Printf("获取价格库存同步状态失败: %v", err)
 	}
 
-	if !fromRedis {
-		var dbCount int
-		db.QueryRow("SELECT COUNT(*) FROM price_inventory WHERE supplier_id = ?", supplierID).Scan(&dbCount)
-		priceInventoryCount = int64(dbCount)
-
-		db.QueryRow(`
-			SELECT MIN(date), MAX(date) FROM price_inventory WHERE supplier_id = ?`,
-			supplierID).Scan(&minDate, &maxDate)
-
-		var lastUpdatedAt sql.NullTime
-		db.QueryRow(`
-			SELECT MAX(updated_at) FROM price_inventory WHERE supplier_id = ?`,
-			supplierID).Scan(&lastUpdatedAt)
-
-		if lastUpdatedAt.Valid {
-			lastSyncTime = lastUpdatedAt.Time.Format("2006-01-02 15:04:05")
-		}
-		log.Printf("从数据库获取同步状态: count=%d, min=%s, max=%s, last=%s",
-			priceInventoryCount, minDate, maxDate, lastSyncTime)
+	data := map[string]interface{}{
+		"supplier_code":   SupplierCodeQiuguo,
+		"supplier_name":   "秋果集团（石基畅联）",
+		"status":          "active",
+		"total_hotels":    hotelCount,
+		"total_rooms":     roomCount,
 	}
 
-	dataSource := "database"
-	if fromRedis {
-		dataSource = "redis"
+	for k, v := range syncStatus {
+		data[k] = v
 	}
 
 	c.JSON(http.StatusOK, models.Response{
 		Code:    200,
 		Message: "获取成功",
-		Data: map[string]interface{}{
-			"supplier_code":        SupplierCodeQiuguo,
-			"supplier_name":        "秋果集团（石基畅联）",
-			"status":               "active",
-			"total_hotels":         hotelCount,
-			"total_rooms":          roomCount,
-			"price_inventory_count": priceInventoryCount,
-			"price_inventory_date_range": map[string]string{
-				"min": minDate,
-				"max": maxDate,
-			},
-			"last_sync_time": lastSyncTime,
-			"data_source":     dataSource,
-		},
+		Data:    data,
 	})
 }

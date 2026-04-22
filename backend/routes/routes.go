@@ -48,6 +48,15 @@ func SetupRouter() *gin.Engine {
 		api.POST("/suppliers/:code/pull", controllers.PullSupplierData)
 		api.GET("/suppliers/:code/status", controllers.GetSyncStatus)
 
+		priceInventory := api.Group("/price-inventory")
+		{
+			priceInventory.GET("", controllers.GetPriceInventory)
+			priceInventory.GET("/range", controllers.GetPriceInventoryByDateRange)
+			priceInventory.GET("/room-price", controllers.GetRoomCurrentPrice)
+			priceInventory.GET("/summary/:code", controllers.GetSupplierPriceInventorySummary)
+			priceInventory.DELETE("/clear/:code", controllers.ClearPriceInventory)
+		}
+
 		shiji := api.Group("/shiji")
 		{
 			qiuguo := shiji.Group("/qiuguo")
