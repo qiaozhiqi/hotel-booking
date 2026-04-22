@@ -40,7 +40,8 @@ export const userApi = {
 export const hotelApi = {
   getList: (params) => api.get('/hotels', { params }),
   getDetail: (id) => api.get(`/hotels/${id}`),
-  getCities: () => api.get('/cities')
+  getCities: () => api.get('/cities'),
+  getFilterOptions: () => api.get('/filter-options')
 }
 
 export const orderApi = {

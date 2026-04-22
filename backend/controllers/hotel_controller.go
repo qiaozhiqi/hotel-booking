@@ -2,11 +2,13 @@ package controllers
 
 import (
 	"database/sql"
+	"fmt"
 	"hotel-booking/database"
 	"hotel-booking/models"
 	"math"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 )
@@ -27,10 +29,27 @@ func getSupplierByID(db *sql.DB, supplierID int) *models.SupplierInfo {
 	return &supplier
 }
 
+func parsePriceRange(priceRange string) (minPrice, maxPrice float64) {
+	if priceRange == "" {
+		return 0, 999999
+	}
+	var min, max float64
+	_, err := fmt.Sscanf(priceRange, "¥%f-¥%f", &min, &max)
+	if err != nil {
+		return 0, 999999
+	}
+	return min, max
+}
+
 func GetHotelList(c *gin.Context) {
 	city := c.Query("city")
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "10"))
+	minPrice, _ := strconv.ParseFloat(c.DefaultQuery("min_price", "0"), 64)
+	maxPrice, _ := strconv.ParseFloat(c.DefaultQuery("max_price", "999999"), 64)
+	ratingMin, _ := strconv.ParseFloat(c.DefaultQuery("rating_min", "0"), 64)
+	bedType := c.Query("bed_type")
+	amenities := c.Query("amenities")
 
 	if page < 1 {
 		page = 1
@@ -46,27 +65,63 @@ func GetHotelList(c *gin.Context) {
 	var err error
 	var countRows *sql.Rows
 
+	baseQuery := `
+		SELECT DISTINCT h.id, h.name, h.address, h.city, h.description, h.rating, h.image_url, h.price_range, h.supplier_id,
+		       s.id, s.name, s.code, s.description, s.status, s.priority, s.price_control
+		FROM hotels h
+		LEFT JOIN suppliers s ON h.supplier_id = s.id
+	`
+
+	countBaseQuery := "SELECT COUNT(DISTINCT h.id) FROM hotels h "
+
+	var conditions []string
+	var args []interface{}
+
 	if city != "" {
-		rows, err = db.Query(`
-			SELECT h.id, h.name, h.address, h.city, h.description, h.rating, h.image_url, h.price_range, h.supplier_id,
-			       s.id, s.name, s.code, s.description, s.status, s.priority, s.price_control
-			FROM hotels h
-			LEFT JOIN suppliers s ON h.supplier_id = s.id
-			WHERE h.city = ? 
-			ORDER BY s.priority DESC, h.rating DESC 
-			LIMIT ? OFFSET ?`, city, pageSize, offset)
-		
-		countRows, _ = db.Query("SELECT COUNT(*) FROM hotels WHERE city = ?", city)
+		conditions = append(conditions, "h.city = ?")
+		args = append(args, city)
+	}
+
+	if ratingMin > 0 {
+		conditions = append(conditions, "h.rating >= ?")
+		args = append(args, ratingMin)
+	}
+
+	if bedType != "" {
+		baseQuery += " LEFT JOIN rooms r ON h.id = r.hotel_id "
+		countBaseQuery += " LEFT JOIN rooms r ON h.id = r.hotel_id "
+		conditions = append(conditions, "r.bed_type LIKE ?")
+		args = append(args, "%"+bedType+"%")
+	}
+
+	if amenities != "" {
+		if bedType == "" {
+			baseQuery += " LEFT JOIN rooms r ON h.id = r.hotel_id "
+			countBaseQuery += " LEFT JOIN rooms r ON h.id = r.hotel_id "
+		}
+		conditions = append(conditions, "r.amenities LIKE ?")
+		args = append(args, "%"+amenities+"%")
+	}
+
+	var finalQuery string
+	var countQuery string
+
+	if len(conditions) > 0 {
+		whereClause := " WHERE " + strings.Join(conditions, " AND ")
+		finalQuery = baseQuery + whereClause + " ORDER BY s.priority DESC, h.rating DESC LIMIT ? OFFSET ?"
+		countQuery = countBaseQuery + whereClause
 	} else {
-		rows, err = db.Query(`
-			SELECT h.id, h.name, h.address, h.city, h.description, h.rating, h.image_url, h.price_range, h.supplier_id,
-			       s.id, s.name, s.code, s.description, s.status, s.priority, s.price_control
-			FROM hotels h
-			LEFT JOIN suppliers s ON h.supplier_id = s.id
-			ORDER BY s.priority DESC, h.rating DESC 
-			LIMIT ? OFFSET ?`, pageSize, offset)
-		
-		countRows, _ = db.Query("SELECT COUNT(*) FROM hotels")
+		finalQuery = baseQuery + " ORDER BY s.priority DESC, h.rating DESC LIMIT ? OFFSET ?"
+		countQuery = countBaseQuery
+	}
+
+	queryArgs := append(args, pageSize, offset)
+	rows, err = db.Query(finalQuery, queryArgs...)
+
+	if len(conditions) > 0 {
+		countRows, _ = db.Query(countQuery, args...)
+	} else {
+		countRows, _ = db.Query(countQuery)
 	}
 
 	if err != nil {
@@ -102,7 +157,10 @@ func GetHotelList(c *gin.Context) {
 			hotel.Supplier = &supplier
 		}
 		
-		hotels = append(hotels, hotel)
+		hotelMinPrice, hotelMaxPrice := parsePriceRange(hotel.PriceRange)
+		if hotelMinPrice <= maxPrice && hotelMaxPrice >= minPrice {
+			hotels = append(hotels, hotel)
+		}
 	}
 
 	var total int
@@ -330,5 +388,91 @@ func GetCities(c *gin.Context) {
 		Code:    200,
 		Message: "获取成功",
 		Data:    cities,
+	})
+}
+
+func GetFilterOptions(c *gin.Context) {
+	db := database.GetDB()
+
+	bedTypeRows, err := db.Query("SELECT DISTINCT bed_type FROM rooms WHERE bed_type IS NOT NULL AND bed_type != '' ORDER BY bed_type")
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, models.Response{
+			Code:    500,
+			Message: "获取床型列表失败",
+		})
+		return
+	}
+	defer bedTypeRows.Close()
+
+	var bedTypes []string
+	for bedTypeRows.Next() {
+		var bedType string
+		if err := bedTypeRows.Scan(&bedType); err == nil {
+			bedTypes = append(bedTypes, bedType)
+		}
+	}
+
+	amenitiesRows, err := db.Query("SELECT DISTINCT amenities FROM rooms WHERE amenities IS NOT NULL AND amenities != ''")
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, models.Response{
+			Code:    500,
+			Message: "获取设施列表失败",
+		})
+		return
+	}
+	defer amenitiesRows.Close()
+
+	amenitiesSet := make(map[string]bool)
+	for amenitiesRows.Next() {
+		var amenities string
+		if err := amenitiesRows.Scan(&amenities); err == nil {
+			parts := strings.Split(amenities, ", ")
+			for _, part := range parts {
+				part = strings.TrimSpace(part)
+				if part != "" {
+					amenitiesSet[part] = true
+				}
+			}
+		}
+	}
+
+	var amenitiesList []string
+	for amenity := range amenitiesSet {
+		amenitiesList = append(amenitiesList, amenity)
+	}
+
+	priceRows, err := db.Query("SELECT MIN(price), MAX(price) FROM rooms")
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, models.Response{
+			Code:    500,
+			Message: "获取价格范围失败",
+		})
+		return
+	}
+	defer priceRows.Close()
+
+	var minPrice, maxPrice float64
+	if priceRows.Next() {
+		priceRows.Scan(&minPrice, &maxPrice)
+	}
+
+	if minPrice == 0 {
+		minPrice = 100
+	}
+	if maxPrice == 0 || maxPrice < minPrice {
+		maxPrice = 5000
+	}
+
+	c.JSON(http.StatusOK, models.Response{
+		Code:    200,
+		Message: "获取成功",
+		Data: map[string]interface{}{
+			"bed_types":   bedTypes,
+			"amenities":   amenitiesList,
+			"price_range": map[string]float64{
+				"min": minPrice,
+				"max": maxPrice,
+			},
+		},
 	})
 }

@@ -960,6 +960,49 @@
       .form-row { flex-direction: column; }
     }
 
+    .main-content { display: flex; gap: 24px; margin-bottom: 40px; }
+    
+    @media (max-width: 1200px) {
+      .main-content { flex-direction: column; }
+      .filter-section { width: 100% !important; position: static !important; }
+    }
+    
+    input[type="range"] { -webkit-appearance: none; appearance: none; height: 6px; background: transparent; cursor: pointer; }
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 20px;
+      height: 20px;
+      background: #fff;
+      border: 2px solid #1a73e8;
+      border-radius: 50%;
+      cursor: pointer;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+    input[type="range"]::-webkit-slider-thumb:hover { transform: scale(1.1); box-shadow: 0 4px 12px rgba(26, 115, 232, 0.3); }
+    input[type="range"]::-moz-range-thumb {
+      width: 20px;
+      height: 20px;
+      background: #fff;
+      border: 2px solid #1a73e8;
+      border-radius: 50%;
+      cursor: pointer;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+    }
+
+    .empty-state button {
+      padding: 10px 24px;
+      background: linear-gradient(135deg, #1a73e8, #0d47a1);
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      font-size: 14px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .empty-state button:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(26, 115, 232, 0.3); }
+
     .hidden { display: none !important; }
   </style>
 </head>
@@ -1043,7 +1086,25 @@
       pageSize: 6,
       total: 0,
       orderStatus: '',
-      selectedRoom: null
+      selectedRoom: null,
+      filterOptions: {
+        bed_types: [],
+        amenities: [],
+        price_range: { min: 100, max: 5000 }
+      },
+      filters: {
+        minPrice: 100,
+        maxPrice: 5000,
+        ratingMin: 0,
+        bedType: '',
+        amenities: []
+      },
+      filterExpanded: {
+        price: true,
+        rating: true,
+        bedType: true,
+        amenities: true
+      }
     };
 
     function initUser() {
@@ -1136,6 +1197,15 @@
         updateNav('home');
         const main = document.getElementById('main-content');
         
+        await loadFilterOptions();
+        
+        const priceMin = state.filters.minPrice;
+        const priceMax = state.filters.maxPrice;
+        const globalPriceMin = state.filterOptions.price_range?.min || 100;
+        const globalPriceMax = state.filterOptions.price_range?.max || 5000;
+        const bedTypes = state.filterOptions.bed_types || [];
+        const amenities = state.filterOptions.amenities || [];
+        
         main.innerHTML = `
           <div class="search-section">
             <div class="search-content">
@@ -1163,10 +1233,131 @@
               </div>
             </div>
           </div>
-          <div class="hotel-section" id="hotel-section">
-            <div class="loading">
-              <div class="loading-spinner"></div>
-              <p>加载中...</p>
+          <div class="main-content">
+            <div class="filter-section" style="width: 280px; flex-shrink: 0; background: #fff; border-radius: 12px; box-shadow: 0 2px 12px rgba(0,0,0,0.08); padding: 20px; height: fit-content; position: sticky; top: 20px;">
+              <div class="filter-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; padding-bottom: 16px; border-bottom: 1px solid #f0f0f0;">
+                <h3 style="font-size: 16px; font-weight: 600; color: #333; margin: 0;">筛选条件</h3>
+                <button class="reset-btn" onclick="resetFilters()" style="font-size: 13px; color: #1a73e8; background: none; border: none; cursor: pointer; padding: 4px 8px; border-radius: 4px;">重置</button>
+              </div>
+              
+              <div class="filter-group" style="margin-bottom: 16px;">
+                <div class="filter-group-header" onclick="toggleFilterGroup('price')" style="display: flex; justify-content: space-between; align-items: center; padding: 12px 0; cursor: pointer;">
+                  <span style="font-size: 14px; font-weight: 600; color: #333;">价格范围</span>
+                  <span id="filter-toggle-price" style="font-size: 18px; color: #999;">−</span>
+                </div>
+                <div id="filter-content-price" style="padding-bottom: 16px; border-bottom: 1px solid #f0f0f0;">
+                  <div style="padding: 8px 0;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                      <span id="price-min-display" style="font-size: 16px; font-weight: 600; color: #1a73e8;">¥${priceMin}</span>
+                      <span style="font-size: 14px; color: #999;">至</span>
+                      <span id="price-max-display" style="font-size: 16px; font-weight: 600; color: #1a73e8;">¥${priceMax}</span>
+                    </div>
+                    <div style="position: relative; height: 6px; margin: 20px 0;">
+                      <div style="position: absolute; top: 0; left: 0; right: 0; height: 6px; background: #e0e0e0; border-radius: 3px;"></div>
+                      <div style="position: absolute; top: 0; height: 6px; background: linear-gradient(90deg, #1a73e8, #0d47a1); border-radius: 3px; left: ${((priceMin - globalPriceMin) / (globalPriceMax - globalPriceMin)) * 100}%; right: ${100 - ((priceMax - globalPriceMin) / (globalPriceMax - globalPriceMin)) * 100}%;"></div>
+                      <input type="range" id="price-min" value="${priceMin}" min="${globalPriceMin}" max="${globalPriceMax}" oninput="onPriceMinChange(this.value)" style="position: absolute; top: 50%; transform: translateY(-50%); width: 100%; height: 6px; background: transparent; -webkit-appearance: none; cursor: pointer; z-index: 10;">
+                      <input type="range" id="price-max" value="${priceMax}" min="${globalPriceMin}" max="${globalPriceMax}" oninput="onPriceMaxChange(this.value)" style="position: absolute; top: 50%; transform: translateY(-50%); width: 100%; height: 6px; background: transparent; -webkit-appearance: none; cursor: pointer; z-index: 20;">
+                    </div>
+                    <div style="display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px;">
+                      <button onclick="setPricePreset(0, 300)" style="padding: 6px 12px; font-size: 12px; color: #666; background: #f5f5f5; border: 1px solid #e0e0e0; border-radius: 16px; cursor: pointer;">¥300以下</button>
+                      <button onclick="setPricePreset(300, 800)" style="padding: 6px 12px; font-size: 12px; color: #666; background: #f5f5f5; border: 1px solid #e0e0e0; border-radius: 16px; cursor: pointer;">¥300-800</button>
+                      <button onclick="setPricePreset(800, 1500)" style="padding: 6px 12px; font-size: 12px; color: #666; background: #f5f5f5; border: 1px solid #e0e0e0; border-radius: 16px; cursor: pointer;">¥800-1500</button>
+                      <button onclick="setPricePreset(1500, 999999)" style="padding: 6px 12px; font-size: 12px; color: #666; background: #f5f5f5; border: 1px solid #e0e0e0; border-radius: 16px; cursor: pointer;">¥1500以上</button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              
+              <div class="filter-group" style="margin-bottom: 16px;">
+                <div class="filter-group-header" onclick="toggleFilterGroup('rating')" style="display: flex; justify-content: space-between; align-items: center; padding: 12px 0; cursor: pointer;">
+                  <span style="font-size: 14px; font-weight: 600; color: #333;">酒店星级</span>
+                  <span id="filter-toggle-rating" style="font-size: 18px; color: #999;">−</span>
+                </div>
+                <div id="filter-content-rating" style="padding-bottom: 16px; border-bottom: 1px solid #f0f0f0;">
+                  <div style="display: flex; flex-direction: column; gap: 8px;">
+                    <label onclick="selectRating(0)" style="display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 8px; cursor: pointer; ${state.filters.ratingMin === 0 ? 'background: rgba(26,115,232,0.1);' : ''}">
+                      <span style="font-size: 14px;">不限</span>
+                      <span style="font-size: 13px; color: #666;">全部星级</span>
+                    </label>
+                    <label onclick="selectRating(3)" style="display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 8px; cursor: pointer; ${state.filters.ratingMin === 3 ? 'background: rgba(26,115,232,0.1);' : ''}">
+                      <span style="font-size: 14px;">⭐⭐⭐</span>
+                      <span style="font-size: 13px; color: #666;">三星及以上</span>
+                    </label>
+                    <label onclick="selectRating(4)" style="display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 8px; cursor: pointer; ${state.filters.ratingMin === 4 ? 'background: rgba(26,115,232,0.1);' : ''}">
+                      <span style="font-size: 14px;">⭐⭐⭐⭐</span>
+                      <span style="font-size: 13px; color: #666;">四星及以上</span>
+                    </label>
+                    <label onclick="selectRating(4.5)" style="display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 8px; cursor: pointer; ${state.filters.ratingMin === 4.5 ? 'background: rgba(26,115,232,0.1);' : ''}">
+                      <span style="font-size: 14px;">⭐⭐⭐⭐⭐</span>
+                      <span style="font-size: 13px; color: #666;">五星及以上</span>
+                    </label>
+                  </div>
+                </div>
+              </div>
+              
+              <div class="filter-group" style="margin-bottom: 16px;">
+                <div class="filter-group-header" onclick="toggleFilterGroup('bedType')" style="display: flex; justify-content: space-between; align-items: center; padding: 12px 0; cursor: pointer;">
+                  <span style="font-size: 14px; font-weight: 600; color: #333;">床型</span>
+                  <span id="filter-toggle-bedType" style="font-size: 18px; color: #999;">−</span>
+                </div>
+                <div id="filter-content-bedType" style="padding-bottom: 16px; border-bottom: 1px solid #f0f0f0;">
+                  <div style="display: flex; flex-wrap: wrap; gap: 8px;">
+                    <label onclick="selectBedType('')" style="display: flex; align-items: center; gap: 6px; padding: 8px 14px; border-radius: 20px; cursor: pointer; ${state.filters.bedType === '' ? 'background: linear-gradient(135deg, #1a73e8, #0d47a1); color: #fff; border: none;' : 'background: #f5f5f5; border: 1px solid #e0e0e0;'}">
+                      <span style="font-size: 13px;">全部</span>
+                    </label>
+                    ${bedTypes.map(bt => `
+                    <label onclick="selectBedType('${bt}')" style="display: flex; align-items: center; gap: 6px; padding: 8px 14px; border-radius: 20px; cursor: pointer; ${state.filters.bedType === bt ? 'background: linear-gradient(135deg, #1a73e8, #0d47a1); color: #fff; border: none;' : 'background: #f5f5f5; border: 1px solid #e0e0e0;'}">
+                      <span style="font-size: 14px;">🛏️</span>
+                      <span style="font-size: 13px;">${bt}</span>
+                    </label>
+                    `).join('')}
+                  </div>
+                </div>
+              </div>
+              
+              <div class="filter-group" style="margin-bottom: 16px;">
+                <div class="filter-group-header" onclick="toggleFilterGroup('amenities')" style="display: flex; justify-content: space-between; align-items: center; padding: 12px 0; cursor: pointer;">
+                  <span style="font-size: 14px; font-weight: 600; color: #333;">酒店设施</span>
+                  <span id="filter-toggle-amenities" style="font-size: 18px; color: #999;">−</span>
+                </div>
+                <div id="filter-content-amenities" style="padding-bottom: 16px; border-bottom: 1px solid #f0f0f0;">
+                  <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px;">
+                    ${amenities.slice(0, 12).map(am => {
+                      const isActive = state.filters.amenities.includes(am);
+                      let icon = '✨';
+                      if (am.includes('WiFi')) icon = '📶';
+                      else if (am.includes('空调')) icon = '❄️';
+                      else if (am.includes('电视')) icon = '📺';
+                      else if (am.includes('热水')) icon = '🚿';
+                      else if (am.includes('酒廊')) icon = '🍸';
+                      else if (am.includes('泳池')) icon = '🏊';
+                      else if (am.includes('管家')) icon = '👔';
+                      else if (am.includes('迷你')) icon = '🧊';
+                      else if (am.includes('办公')) icon = '💼';
+                      else if (am.includes('阳台')) icon = '🌅';
+                      else if (am.includes('智能')) icon = '🤖';
+                      else if (am.includes('行政')) icon = '👑';
+                      return `
+                    <label onclick="toggleAmenity('${am}')" style="display: flex; align-items: center; gap: 6px; padding: 10px 12px; border-radius: 8px; cursor: pointer; ${isActive ? 'background: rgba(26,115,232,0.1); border: 1px solid #1a73e8;' : 'background: #f5f5f5; border: 1px solid #e0e0e0;'}">
+                      <span style="font-size: 14px;">${icon}</span>
+                      <span style="font-size: 12px; color: #666;">${am}</span>
+                    </label>
+                    `;
+                    }).join('')}
+                  </div>
+                </div>
+              </div>
+              
+              <button class="apply-filter-btn" onclick="applyFilters()" style="width: 100%; padding: 12px; background: linear-gradient(135deg, #1a73e8, #0d47a1); color: #fff; border: none; border-radius: 8px; font-size: 14px; font-weight: 500; cursor: pointer; margin-top: 12px;">
+                应用筛选
+              </button>
+            </div>
+            
+            <div class="hotel-section" id="hotel-section" style="flex: 1;">
+              <div class="loading">
+                <div class="loading-spinner"></div>
+                <p>加载中...</p>
+              </div>
             </div>
           </div>
         `;
@@ -1352,6 +1543,21 @@
         if (state.selectedCity) {
           params.append('city', state.selectedCity);
         }
+        if (state.filters.minPrice > 0) {
+          params.append('min_price', state.filters.minPrice);
+        }
+        if (state.filters.maxPrice < 999999) {
+          params.append('max_price', state.filters.maxPrice);
+        }
+        if (state.filters.ratingMin > 0) {
+          params.append('rating_min', state.filters.ratingMin);
+        }
+        if (state.filters.bedType) {
+          params.append('bed_type', state.filters.bedType);
+        }
+        if (state.filters.amenities.length > 0) {
+          params.append('amenities', state.filters.amenities[0]);
+        }
 
         const res = await api.get(`/hotels?${params.toString()}`);
         if (res.code === 200) {
@@ -1366,6 +1572,91 @@
             <p class="empty-text">加载失败，请稍后重试</p>
           </div>
         `;
+      }
+    }
+
+    async function loadFilterOptions() {
+      try {
+        const res = await api.get('/filter-options');
+        if (res.code === 200) {
+          state.filterOptions = res.data;
+          state.filters.minPrice = res.data.price_range?.min || 100;
+          state.filters.maxPrice = res.data.price_range?.max || 5000;
+        }
+      } catch (error) {
+        console.error('加载筛选选项失败:', error);
+      }
+    }
+
+    function applyFilters() {
+      state.currentPage = 1;
+      loadHotels();
+    }
+
+    function resetFilters() {
+      state.filters.minPrice = state.filterOptions.price_range?.min || 100;
+      state.filters.maxPrice = state.filterOptions.price_range?.max || 5000;
+      state.filters.ratingMin = 0;
+      state.filters.bedType = '';
+      state.filters.amenities = [];
+      state.selectedCity = '';
+      state.currentPage = 1;
+      loadHotels();
+    }
+
+    function toggleFilterGroup(filter) {
+      state.filterExpanded[filter] = !state.filterExpanded[filter];
+      const content = document.getElementById(`filter-content-${filter}`);
+      const toggle = document.getElementById(`filter-toggle-${filter}`);
+      if (content) {
+        content.style.display = state.filterExpanded[filter] ? 'block' : 'none';
+      }
+      if (toggle) {
+        toggle.textContent = state.filterExpanded[filter] ? '−' : '+';
+      }
+    }
+
+    function setPricePreset(min, max) {
+      state.filters.minPrice = min;
+      state.filters.maxPrice = max;
+      const minSlider = document.getElementById('price-min');
+      const maxSlider = document.getElementById('price-max');
+      if (minSlider) minSlider.value = min;
+      if (maxSlider) maxSlider.value = max;
+      updatePriceDisplay();
+    }
+
+    function updatePriceDisplay() {
+      const minDisplay = document.getElementById('price-min-display');
+      const maxDisplay = document.getElementById('price-max-display');
+      if (minDisplay) minDisplay.textContent = '¥' + state.filters.minPrice;
+      if (maxDisplay) maxDisplay.textContent = '¥' + state.filters.maxPrice;
+    }
+
+    function onPriceMinChange(value) {
+      state.filters.minPrice = Math.min(parseInt(value), state.filters.maxPrice);
+      updatePriceDisplay();
+    }
+
+    function onPriceMaxChange(value) {
+      state.filters.maxPrice = Math.max(parseInt(value), state.filters.minPrice);
+      updatePriceDisplay();
+    }
+
+    function selectRating(value) {
+      state.filters.ratingMin = state.filters.ratingMin === value ? 0 : value;
+    }
+
+    function selectBedType(bedType) {
+      state.filters.bedType = state.filters.bedType === bedType ? '' : bedType;
+    }
+
+    function toggleAmenity(amenity) {
+      const index = state.filters.amenities.indexOf(amenity);
+      if (index > -1) {
+        state.filters.amenities.splice(index, 1);
+      } else {
+        state.filters.amenities.push(amenity);
       }
     }
 
