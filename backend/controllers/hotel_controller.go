@@ -17,10 +17,10 @@ func getSupplierByID(db *sql.DB, supplierID int) *models.SupplierInfo {
 	}
 	var supplier models.SupplierInfo
 	err := db.QueryRow(`
-		SELECT id, name, code, description, priority, price_control 
+		SELECT id, name, code, description, status, priority, price_control 
 		FROM suppliers WHERE id = ?`, supplierID).Scan(
 		&supplier.ID, &supplier.Name, &supplier.Code, &supplier.Description,
-		&supplier.Priority, &supplier.PriceControl)
+		&supplier.Status, &supplier.Priority, &supplier.PriceControl)
 	if err != nil {
 		return nil
 	}
@@ -49,7 +49,7 @@ func GetHotelList(c *gin.Context) {
 	if city != "" {
 		rows, err = db.Query(`
 			SELECT h.id, h.name, h.address, h.city, h.description, h.rating, h.image_url, h.price_range, h.supplier_id,
-			       s.id, s.name, s.code, s.description, s.priority, s.price_control
+			       s.id, s.name, s.code, s.description, s.status, s.priority, s.price_control
 			FROM hotels h
 			LEFT JOIN suppliers s ON h.supplier_id = s.id
 			WHERE h.city = ? 
@@ -60,7 +60,7 @@ func GetHotelList(c *gin.Context) {
 	} else {
 		rows, err = db.Query(`
 			SELECT h.id, h.name, h.address, h.city, h.description, h.rating, h.image_url, h.price_range, h.supplier_id,
-			       s.id, s.name, s.code, s.description, s.priority, s.price_control
+			       s.id, s.name, s.code, s.description, s.status, s.priority, s.price_control
 			FROM hotels h
 			LEFT JOIN suppliers s ON h.supplier_id = s.id
 			ORDER BY s.priority DESC, h.rating DESC 
@@ -88,7 +88,7 @@ func GetHotelList(c *gin.Context) {
 		err := rows.Scan(&hotel.ID, &hotel.Name, &hotel.Address, &hotel.City, 
 			&hotel.Description, &hotel.Rating, &hotel.ImageURL, &hotel.PriceRange, &supplierID,
 			&supplier.ID, &supplier.Name, &supplier.Code, &supplier.Description,
-			&supplier.Priority, &supplier.PriceControl)
+			&supplier.Status, &supplier.Priority, &supplier.PriceControl)
 		
 		if err != nil {
 			continue
@@ -217,14 +217,14 @@ func GetHotelDetail(c *gin.Context) {
 	
 	err := db.QueryRow(`
 		SELECT h.id, h.name, h.address, h.city, h.description, h.rating, h.image_url, h.price_range, h.supplier_id,
-		       s.id, s.name, s.code, s.description, s.priority, s.price_control
+		       s.id, s.name, s.code, s.description, s.status, s.priority, s.price_control
 		FROM hotels h
 		LEFT JOIN suppliers s ON h.supplier_id = s.id
 		WHERE h.id = ?`, hotelID).Scan(
 		&hotel.ID, &hotel.Name, &hotel.Address, &hotel.City, 
 		&hotel.Description, &hotel.Rating, &hotel.ImageURL, &hotel.PriceRange, &supplierID,
 		&supplier.ID, &supplier.Name, &supplier.Code, &supplier.Description,
-		&supplier.Priority, &supplier.PriceControl)
+		&supplier.Status, &supplier.Priority, &supplier.PriceControl)
 
 	if err != nil {
 		if err == sql.ErrNoRows {

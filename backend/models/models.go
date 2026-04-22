@@ -147,6 +147,7 @@ type SupplierInfo struct {
 	Name         string  `json:"name"`
 	Code         string  `json:"code"`
 	Description  string  `json:"description"`
+	Status       string  `json:"status"`
 	Priority     int     `json:"priority"`
 	PriceControl float64 `json:"price_control"`
 }

@@ -1115,6 +1115,7 @@
     }
 
     function getSupplierShortName(name) {
+      if (!name) return '未知';
       const shortNames = {
         '华住集团': '华住',
         '锦江国际': '锦江',
@@ -1428,7 +1429,7 @@
                 <div class="hotel-supplier-info">
                   <span class="supplier-source">
                     <span>📦 来源：</span>
-                    <strong>${hotel.supplier.name}</strong>
+                    <strong>${hotel.supplier.name || '未知'}</strong>
                   </span>
                   ${hotel.supplier.priority ? `<span class="priority-tag">⭐ 优先级 ${hotel.supplier.priority}</span>` : ''}
                   ${hotel.supplier.price_control ? `<span class="supplier-tag">💰 控价 ${(hotel.supplier.price_control * 100).toFixed(0)}%</span>` : ''}
@@ -1538,10 +1539,12 @@
                 <span>控价系数：<strong>${(supplier.price_control * 100).toFixed(0)}%</strong></span>
               </div>
               ` : ''}
+              ${supplier.status ? `
               <div class="supplier-info-tag">
                 <span>📊</span>
                 <span>状态：<strong>${supplier.status === 'active' ? '正常' : supplier.status}</strong></span>
               </div>
+              ` : ''}
             </div>
             ${supplier.description ? `<div class="supplier-info-desc">${supplier.description}</div>` : ''}
           </div>
