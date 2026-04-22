@@ -115,6 +115,7 @@ func initDatabaseTables() error {
 				description TEXT,
 				api_url TEXT,
 				api_key TEXT,
+				secret_key TEXT,
 				status TEXT DEFAULT 'active',
 				priority INTEGER DEFAULT 0,
 				price_control REAL DEFAULT 1.0,
@@ -203,6 +204,7 @@ func initDatabaseTables() error {
 				description TEXT,
 				api_url VARCHAR(255),
 				api_key VARCHAR(255),
+				secret_key VARCHAR(255),
 				status ENUM('active', 'inactive') DEFAULT 'active',
 				priority INT DEFAULT 0,
 				price_control DECIMAL(5,2) DEFAULT 1.00,
@@ -282,7 +284,24 @@ func initDatabaseTables() error {
 		db.Exec(createPriceInventorySQL)
 	}
 	
+	migrateDatabase()
+	
 	return nil
+}
+
+func migrateDatabase() {
+	db := database.GetDB()
+	cfg := config.GetConfig()
+	
+	if !columnExists(db, "suppliers", "secret_key") {
+		log.Println("正在添加 secret_key 字段到 suppliers 表...")
+		if cfg.DBType == "sqlite" {
+			db.Exec(`ALTER TABLE suppliers ADD COLUMN secret_key TEXT`)
+		} else {
+			db.Exec(`ALTER TABLE suppliers ADD COLUMN secret_key VARCHAR(255)`)
+		}
+		log.Println("secret_key 字段添加完成")
+	}
 }
 
 func getSupplierPriority(code string) int {

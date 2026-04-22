@@ -2,6 +2,7 @@ package routes
 
 import (
 	"hotel-booking/controllers"
+	"hotel-booking/security"
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
@@ -13,7 +14,7 @@ func SetupRouter() *gin.Engine {
 	r.Use(cors.New(cors.Config{
 		AllowOrigins:     []string{"*"},
 		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
-		AllowHeaders:     []string{"Origin", "Content-Type", "Authorization", "X-User-ID"},
+		AllowHeaders:     []string{"Origin", "Content-Type", "Authorization", "X-User-ID", "X-API-Key", "X-Signature", "X-Timestamp", "X-Request-ID"},
 		ExposeHeaders:    []string{"Content-Length"},
 		AllowCredentials: true,
 	}))
@@ -51,8 +52,13 @@ func SetupRouter() *gin.Engine {
 		{
 			qiuguo := shiji.Group("/qiuguo")
 			{
-				qiuguo.POST("/push", controllers.HandleQiuguoPush)
 				qiuguo.GET("/status", controllers.GetQiuguoSyncStatus)
+				
+				qiuguoProtected := qiuguo.Group("")
+				qiuguoProtected.Use(security.SupplierPushAuthMiddleware("shiji_qiuguo"))
+				{
+					qiuguoProtected.POST("/push", controllers.HandleQiuguoPush)
+				}
 			}
 		}
 
