@@ -47,13 +47,29 @@
               <span class="rating-star">⭐</span>
               <span class="rating-value">{{ hotel.rating }}</span>
             </div>
+            <div v-if="hotel.supplier" class="hotel-supplier-badge">
+              <span class="supplier-icon">🏢</span>
+              <span class="supplier-name">{{ getSupplierShortName(hotel.supplier.name) }}</span>
+            </div>
           </div>
           <div class="hotel-info">
-            <h3 class="hotel-name">{{ hotel.name }}</h3>
+            <h3 class="hotel-name">
+              {{ hotel.name }}
+              <span v-if="hotel.supplier" class="supplier-tag">
+                {{ getSupplierShortName(hotel.supplier.name) }}
+              </span>
+            </h3>
             <p class="hotel-location">
               <span class="location-icon">📍</span>
               {{ hotel.city }} · {{ hotel.address }}
             </p>
+            <div v-if="hotel.supplier" class="hotel-supplier-info">
+              <span class="supplier-label">来源：</span>
+              <span class="supplier-value">{{ hotel.supplier.name }}</span>
+              <span v-if="hotel.supplier.priority > 0" class="priority-tag">
+                优先级 {{ hotel.supplier.priority }}
+              </span>
+            </div>
             <p class="hotel-desc" v-if="hotel.description">{{ hotel.description }}</p>
             <div class="hotel-price">
               <span class="price-label">起价</span>
@@ -159,6 +175,39 @@ export default {
       router.push(`/hotel/${id}`)
     }
 
+    const getSupplierShortName = (name) => {
+      if (!name) return ''
+      const shortNames = {
+        '华住酒店集团': '华住',
+        '锦江国际酒店集团': '锦江',
+        '如家酒店集团': '如家',
+        '万豪国际酒店集团': '万豪',
+        '希尔顿酒店集团': '希尔顿',
+        '洲际酒店集团': '洲际',
+        '万达酒店集团': '万达',
+        '开元酒店集团': '开元',
+        '绿地酒店集团': '绿地',
+        '模拟供应商A': '供应商A',
+        '模拟供应商B': '供应商B',
+        '模拟供应商C': '供应商C'
+      }
+      for (let key in shortNames) {
+        if (name.includes(key) || name.includes(shortNames[key])) {
+          return shortNames[key]
+        }
+      }
+      if (name.includes('石基畅联')) {
+        if (name.includes('万豪')) return '万豪'
+        if (name.includes('希尔顿')) return '希尔顿'
+        if (name.includes('洲际')) return '洲际'
+        if (name.includes('开元')) return '开元'
+        if (name.includes('万达')) return '万达'
+        if (name.includes('绿地')) return '绿地'
+        return '石基畅联'
+      }
+      return name.slice(0, 4)
+    }
+
     onMounted(() => {
       loadCities()
       loadHotels()
@@ -177,7 +226,8 @@ export default {
       totalPages,
       searchHotels,
       changePage,
-      goToHotel
+      goToHotel,
+      getSupplierShortName
     }
   }
 }
@@ -354,6 +404,29 @@ export default {
   color: #f59e0b;
 }
 
+.hotel-supplier-badge {
+  position: absolute;
+  bottom: 12px;
+  left: 12px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  background: linear-gradient(135deg, #1a73e8 0%, #0d47a1 100%);
+  border-radius: 16px;
+  box-shadow: 0 2px 8px rgba(26, 115, 232, 0.3);
+}
+
+.supplier-icon {
+  font-size: 12px;
+}
+
+.supplier-name {
+  font-size: 12px;
+  font-weight: 600;
+  color: #fff;
+}
+
 .hotel-info {
   padding: 16px;
 }
@@ -363,9 +436,20 @@ export default {
   font-weight: 600;
   color: #333;
   margin-bottom: 8px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.supplier-tag {
+  font-size: 11px;
+  font-weight: 500;
+  color: #1a73e8;
+  background: rgba(26, 115, 232, 0.1);
+  padding: 2px 8px;
+  border-radius: 4px;
+  border: 1px solid rgba(26, 115, 232, 0.2);
 }
 
 .hotel-location {
@@ -382,6 +466,33 @@ export default {
 
 .location-icon {
   font-size: 14px;
+}
+
+.hotel-supplier-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+  font-size: 12px;
+  flex-wrap: wrap;
+}
+
+.supplier-label {
+  color: #999;
+}
+
+.supplier-value {
+  color: #333;
+  font-weight: 500;
+}
+
+.priority-tag {
+  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 10px;
 }
 
 .hotel-desc {

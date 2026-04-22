@@ -675,6 +675,258 @@
       to { opacity: 1; transform: translateX(-50%) translateY(0); }
     }
 
+    .hotel-supplier-badge {
+      position: absolute;
+      top: 12px;
+      left: 12px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 12px;
+      background: linear-gradient(135deg, #1a73e8 0%, #0d47a1 100%);
+      border-radius: 20px;
+      box-shadow: 0 2px 8px rgba(26, 115, 232, 0.3);
+      z-index: 10;
+    }
+    .supplier-icon { font-size: 14px; }
+    .supplier-name { font-size: 12px; font-weight: 600; color: #fff; }
+
+    .supplier-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 2px 10px;
+      background: rgba(26, 115, 232, 0.1);
+      border: 1px solid rgba(26, 115, 232, 0.2);
+      border-radius: 4px;
+      font-size: 12px;
+      font-weight: 500;
+      color: #1a73e8;
+      margin-left: 8px;
+    }
+
+    .priority-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 2px 8px;
+      background: rgba(245, 158, 11, 0.1);
+      border: 1px solid rgba(245, 158, 11, 0.2);
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: 600;
+      color: #d97706;
+      margin-left: 6px;
+    }
+
+    .hotel-supplier-info {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-top: 8px;
+      font-size: 12px;
+      color: #666;
+    }
+    .supplier-source {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .supplier-info-section {
+      background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+      border-radius: 8px;
+      padding: 16px;
+      margin-bottom: 16px;
+      border-left: 4px solid #1a73e8;
+    }
+    .supplier-info-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+    .supplier-info-name {
+      font-size: 16px;
+      font-weight: 600;
+      color: #1a73e8;
+    }
+    .supplier-info-tags {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .supplier-info-tag {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 12px;
+      background: #fff;
+      border-radius: 6px;
+      font-size: 13px;
+      color: #666;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    }
+    .supplier-info-tag strong { color: #333; }
+    .supplier-info-desc {
+      margin-top: 12px;
+      padding-top: 12px;
+      border-top: 1px solid rgba(0, 0, 0, 0.05);
+      font-size: 13px;
+      color: #666;
+    }
+
+    .channel-prices-section {
+      margin-top: 16px;
+      padding: 16px;
+      background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+      border-radius: 8px;
+      border: 1px solid #bae6fd;
+    }
+    .channel-prices-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+    .channel-prices-title {
+      font-size: 14px;
+      font-weight: 600;
+      color: #0369a1;
+    }
+    .channel-prices-count {
+      font-size: 12px;
+      color: #64748b;
+    }
+    .channel-price-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .channel-price-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 12px;
+      background: #fff;
+      border-radius: 6px;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+      transition: all 0.2s;
+    }
+    .channel-price-item:hover { transform: translateX(2px); box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1); }
+    .channel-price-item.best-price {
+      background: linear-gradient(135deg, #dcfce7 0%, #bbf7d0 100%);
+      border: 1px solid #86efac;
+    }
+    .channel-price-item.out-of-stock {
+      background: #f1f5f9;
+      opacity: 0.6;
+    }
+    .channel-info {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .channel-name-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .channel-name {
+      font-size: 14px;
+      font-weight: 600;
+      color: #333;
+    }
+    .channel-badge {
+      padding: 2px 8px;
+      background: #e0e7ff;
+      color: #4338ca;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: 600;
+    }
+    .channel-badge.best-badge {
+      background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+      color: #fff;
+    }
+    .channel-meta {
+      display: flex;
+      gap: 12px;
+      font-size: 12px;
+      color: #666;
+    }
+    .channel-priority {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .channel-price {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 2px;
+    }
+    .channel-price-main {
+      display: flex;
+      align-items: baseline;
+      gap: 2px;
+    }
+    .channel-price-currency { font-size: 12px; color: #e74c3c; }
+    .channel-price-num { font-size: 18px; font-weight: 600; color: #e74c3c; }
+    .channel-price-unit { font-size: 12px; color: #999; }
+    .channel-original-price {
+      font-size: 12px;
+      color: #999;
+      text-decoration: line-through;
+    }
+    .channel-stock {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 12px;
+    }
+    .channel-stock.available { color: #16a34a; }
+    .channel-stock.unavailable { color: #dc2626; }
+
+    .best-price-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 2px 10px;
+      background: linear-gradient(135deg, #16a34a 0%, #15803d 100%);
+      color: #fff;
+      border-radius: 4px;
+      font-size: 12px;
+      font-weight: 600;
+    }
+
+    .room-header-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+
+    .section-subtitle {
+      font-size: 13px;
+      font-weight: 500;
+      color: #1a73e8;
+      background: rgba(26, 115, 232, 0.1);
+      padding: 4px 10px;
+      border-radius: 4px;
+      margin-left: 8px;
+    }
+
+    .price-discount {
+      font-size: 12px;
+      font-weight: 600;
+      color: #10b981;
+      background: rgba(16, 185, 129, 0.1);
+      padding: 2px 8px;
+      border-radius: 4px;
+      margin-left: 8px;
+    }
+
     @media (max-width: 1024px) {
       .hotel-list { grid-template-columns: repeat(2, 1fr); }
     }
@@ -860,6 +1112,22 @@
         'cancelled': 'status-cancelled'
       };
       return map[status] || '';
+    }
+
+    function getSupplierShortName(name) {
+      const shortNames = {
+        '华住集团': '华住',
+        '锦江国际': '锦江',
+        '首旅如家': '如家',
+        '石基畅联-万豪': '万豪',
+        '石基畅联-希尔顿': '希尔顿',
+        '石基畅联-洲际': '洲际',
+        '石基畅联-开元': '开元',
+        '石基畅联-万达': '万达',
+        '石基畅联-绿地': '绿地',
+        '石基畅联': '石基'
+      };
+      return shortNames[name] || (name.length > 4 ? name.substring(0, 4) : name);
     }
 
     const pages = {
@@ -1140,13 +1408,32 @@
                   <span class="rating-star">⭐</span>
                   <span class="rating-value">${hotel.rating}</span>
                 </div>
+                ${hotel.supplier ? `
+                <div class="hotel-supplier-badge">
+                  <span class="supplier-icon">🏢</span>
+                  <span class="supplier-name">${getSupplierShortName(hotel.supplier.name)}</span>
+                </div>
+                ` : ''}
               </div>
               <div class="hotel-info">
-                <h3 class="hotel-name">${hotel.name}</h3>
+                <h3 class="hotel-name">
+                  ${hotel.name}
+                  ${hotel.supplier ? `<span class="supplier-tag">${getSupplierShortName(hotel.supplier.name)}${hotel.supplier.priority ? `<span class="priority-tag">优先级 ${hotel.supplier.priority}</span>` : ''}</span>` : ''}
+                </h3>
                 <p class="hotel-location">
                   <span class="location-icon">📍</span>
                   ${hotel.city} · ${hotel.address}
                 </p>
+                ${hotel.supplier ? `
+                <div class="hotel-supplier-info">
+                  <span class="supplier-source">
+                    <span>📦 来源：</span>
+                    <strong>${hotel.supplier.name}</strong>
+                  </span>
+                  ${hotel.supplier.priority ? `<span class="priority-tag">⭐ 优先级 ${hotel.supplier.priority}</span>` : ''}
+                  ${hotel.supplier.price_control ? `<span class="supplier-tag">💰 控价 ${(hotel.supplier.price_control * 100).toFixed(0)}%</span>` : ''}
+                </div>
+                ` : ''}
                 ${hotel.description ? `<p class="hotel-desc">${hotel.description}</p>` : ''}
                 <div class="hotel-price">
                   <span class="price-label">起价</span>
@@ -1177,6 +1464,90 @@
       const hotel = state.currentHotel;
       const rooms = state.rooms;
 
+      function renderChannelPrices(room) {
+        if (!room.channel_prices || room.channel_prices.length === 0) return '';
+        
+        return `
+          <div class="channel-prices-section">
+            <div class="channel-prices-header">
+              <span class="channel-prices-title">📊 渠道比价</span>
+              <span class="channel-prices-count">共 ${room.channel_prices.length} 个渠道</span>
+            </div>
+            <div class="channel-price-list">
+              ${room.channel_prices.map(cp => {
+                const isBestPrice = cp.is_best_price;
+                const isOutOfStock = cp.available_count <= 0;
+                const hasDiscount = cp.original_price && cp.original_price > cp.price;
+                const discountAmount = hasDiscount ? cp.original_price - cp.price : 0;
+                
+                return `
+                <div class="channel-price-item ${isBestPrice ? 'best-price' : ''} ${isOutOfStock ? 'out-of-stock' : ''}">
+                  <div class="channel-info">
+                    <div class="channel-name-row">
+                      <span class="channel-name">${getSupplierShortName(cp.supplier_name)}</span>
+                      ${isBestPrice ? '<span class="channel-badge best-badge">🔥 最优价</span>' : ''}
+                      ${cp.priority ? `<span class="channel-badge">优先级 ${cp.priority}</span>` : ''}
+                    </div>
+                    <div class="channel-meta">
+                      ${cp.priority ? `<span class="channel-priority"><span>⭐</span>优先级 ${cp.priority}</span>` : ''}
+                      <span class="channel-stock ${isOutOfStock ? 'unavailable' : 'available'}">
+                        <span>${isOutOfStock ? '❌' : '✅'}</span>
+                        ${isOutOfStock ? '无房' : `剩余 ${cp.available_count} 间`}
+                      </span>
+                    </div>
+                  </div>
+                  <div class="channel-price">
+                    <div class="channel-price-main">
+                      <span class="channel-price-currency">¥</span>
+                      <span class="channel-price-num">${cp.price.toFixed(0)}</span>
+                      <span class="channel-price-unit">/晚</span>
+                    </div>
+                    ${hasDiscount ? `
+                    <span class="channel-original-price">¥${cp.original_price.toFixed(0)}</span>
+                    <span class="price-discount">省 ¥${discountAmount.toFixed(0)}</span>
+                    ` : ''}
+                  </div>
+                </div>
+                `;
+              }).join('')}
+            </div>
+          </div>
+        `;
+      }
+
+      function renderSupplierInfo(supplier) {
+        if (!supplier) return '';
+        
+        return `
+          <div class="supplier-info-section">
+            <div class="supplier-info-header">
+              <span class="supplier-icon" style="font-size: 24px;">🏢</span>
+              <span class="supplier-info-name">${supplier.name}</span>
+              ${supplier.priority ? `<span class="priority-tag">优先级 ${supplier.priority}</span>` : ''}
+            </div>
+            <div class="supplier-info-tags">
+              ${supplier.priority ? `
+              <div class="supplier-info-tag">
+                <span>⭐</span>
+                <span>优先级：<strong>${supplier.priority}</strong></span>
+              </div>
+              ` : ''}
+              ${supplier.price_control ? `
+              <div class="supplier-info-tag">
+                <span>💰</span>
+                <span>控价系数：<strong>${(supplier.price_control * 100).toFixed(0)}%</strong></span>
+              </div>
+              ` : ''}
+              <div class="supplier-info-tag">
+                <span>📊</span>
+                <span>状态：<strong>${supplier.status === 'active' ? '正常' : supplier.status}</strong></span>
+              </div>
+            </div>
+            ${supplier.description ? `<div class="supplier-info-desc">${supplier.description}</div>` : ''}
+          </div>
+        `;
+      }
+
       main.innerHTML = `
         <a class="btn-back" onclick="router.navigate('/')" style="display: inline-block; margin-top: 30px;">← 返回列表</a>
         <div class="hotel-header">
@@ -1184,7 +1555,10 @@
             <img src="${hotel.image_url}" alt="${hotel.name}" onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%22400%22 height=%22280%22><rect fill=%22%23ddd%22 width=%22400%22 height=%22280%22/><text x=%22200%22 y=%22150%22 text-anchor=%22middle%22 fill=%22%23999%22>🏨 酒店图片</text></svg>'">
           </div>
           <div class="hotel-info-large">
-            <h1 class="hotel-name-large">${hotel.name}</h1>
+            <h1 class="hotel-name-large">
+              ${hotel.name}
+              ${hotel.supplier ? `<span class="supplier-tag">${getSupplierShortName(hotel.supplier.name)}</span>` : ''}
+            </h1>
             <div class="hotel-meta">
               <div class="meta-item">
                 <span class="meta-icon">📍</span>
@@ -1195,6 +1569,7 @@
                 <span class="meta-text rating-high">${hotel.rating} 分</span>
               </div>
             </div>
+            ${renderSupplierInfo(hotel.supplier)}
             <p class="hotel-desc-large">${hotel.description || '暂无描述'}</p>
             <div class="price-range-large">
               <span class="price-label">价格范围：</span>
@@ -1204,7 +1579,10 @@
         </div>
 
         <div class="rooms-section">
-          <h2 class="section-title">房型选择</h2>
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; padding-bottom: 16px; border-bottom: 1px solid #eee;">
+            <h2 class="section-title" style="margin: 0; padding: 0; border: none;">房型选择</h2>
+            <span class="section-subtitle">📊 支持多渠道比价</span>
+          </div>
           ${rooms.length === 0 ? `
             <div class="empty-state">
               <div class="empty-icon">🛏️</div>
@@ -1212,13 +1590,23 @@
             </div>
           ` : `
             <div class="room-list">
-              ${rooms.map(room => `
+              ${rooms.map(room => {
+                const hasChannelPrices = room.channel_prices && room.channel_prices.length > 0;
+                const hasBestPrice = room.best_price && room.best_price < room.price;
+                const displayPrice = room.best_price || room.price;
+                
+                return `
                 <div class="room-card">
                   <div class="room-image">
                     <img src="${room.image_url}" alt="${room.name}" onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%22220%22 height=%22160%22><rect fill=%22%23ddd%22 width=%22220%22 height=%22160%22/><text x=%22110%22 y=%2290%22 text-anchor=%22middle%22 fill=%22%23999%22>🛏️ 房型图片</text></svg>'">
                   </div>
                   <div class="room-info">
-                    <h3 class="room-name">${room.name}</h3>
+                    <div class="room-header-row">
+                      <h3 class="room-name" style="margin: 0;">
+                        ${room.name}
+                        ${hasBestPrice ? '<span class="best-price-tag">🔥 最优价比</span>' : ''}
+                      </h3>
+                    </div>
                     <div class="room-features">
                       <span class="feature-tag"><span class="feature-icon">🛏️</span>${room.bed_type || '大床'}</span>
                       <span class="feature-tag"><span class="feature-icon">📐</span>${room.area || 30} ㎡</span>
@@ -1232,19 +1620,25 @@
                         : `<span class="unavailable-text">暂无空房</span>`
                       }
                     </div>
+                    ${renderChannelPrices(room)}
                   </div>
                   <div class="room-price-box">
                     <div class="room-price">
+                      ${hasBestPrice ? `
+                      <span class="channel-original-price" style="margin-bottom: 4px;">¥${room.price.toFixed(0)}</span>
+                      ` : ''}
                       <span class="price-currency">¥</span>
-                      <span class="price-num">${room.price}</span>
+                      <span class="price-num">${displayPrice.toFixed(0)}</span>
                       <span class="price-unit">/晚</span>
+                      ${hasBestPrice ? `<span class="price-discount">省 ¥${(room.price - room.best_price).toFixed(0)}</span>` : ''}
                     </div>
                     <button class="btn-book" ${room.available_count <= 0 ? 'disabled' : ''} onclick="openBookingModal(${JSON.stringify(room).replace(/"/g, '&quot;')})">
                       立即预订
                     </button>
                   </div>
                 </div>
-              `).join('')}
+                `;
+              }).join('')}
             </div>
           `}
         </div>

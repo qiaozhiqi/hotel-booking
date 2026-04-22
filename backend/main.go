@@ -116,6 +116,8 @@ func initDatabaseTables() error {
 				api_url TEXT,
 				api_key TEXT,
 				status TEXT DEFAULT 'active',
+				priority INTEGER DEFAULT 0,
+				price_control REAL DEFAULT 1.0,
 				created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
 				updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
 			)
@@ -183,6 +185,8 @@ func initDatabaseTables() error {
 				api_url VARCHAR(255),
 				api_key VARCHAR(255),
 				status ENUM('active', 'inactive') DEFAULT 'active',
+				priority INT DEFAULT 0,
+				price_control DECIMAL(5,2) DEFAULT 1.00,
 				created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 				updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 			) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
@@ -241,6 +245,42 @@ func initDatabaseTables() error {
 	return nil
 }
 
+func getSupplierPriority(code string) int {
+	priorityMap := map[string]int{
+		"shiji_marriott": 10,
+		"shiji_hilton":   9,
+		"shiji_ihg":      8,
+		"shiji_wanda":    7,
+		"shiji_kaiyuan":  6,
+		"shiji_lvdi":     5,
+		"huazhu":         4,
+		"jinjiang":       3,
+		"rujia":          2,
+	}
+	if p, ok := priorityMap[code]; ok {
+		return p
+	}
+	return 1
+}
+
+func getSupplierPriceControl(code string) float64 {
+	priceControlMap := map[string]float64{
+		"shiji_marriott": 1.15,
+		"shiji_hilton":   1.10,
+		"shiji_ihg":      1.08,
+		"shiji_wanda":    1.05,
+		"shiji_kaiyuan":  1.02,
+		"shiji_lvdi":     1.00,
+		"huazhu":         0.95,
+		"jinjiang":       0.92,
+		"rujia":          0.88,
+	}
+	if p, ok := priceControlMap[code]; ok {
+		return p
+	}
+	return 1.0
+}
+
 func initSupplierRecords() error {
 	db := database.GetDB()
 	adapters := suppliers.GetAllAdapters()
@@ -254,15 +294,18 @@ func initSupplierRecords() error {
 		}
 		
 		if count == 0 {
+			priority := getSupplierPriority(adapter.GetCode())
+			priceControl := getSupplierPriceControl(adapter.GetCode())
+			
 			_, err = db.Exec(`
-				INSERT INTO suppliers (name, code, description, api_url, status)
-				VALUES (?, ?, ?, ?, ?)`,
+				INSERT INTO suppliers (name, code, description, api_url, status, priority, price_control)
+				VALUES (?, ?, ?, ?, ?, ?, ?)`,
 				adapter.GetName(), adapter.GetCode(), adapter.GetDescription(),
-				adapter.GetAPIURL(), "active")
+				adapter.GetAPIURL(), "active", priority, priceControl)
 			if err != nil {
 				log.Printf("初始化供应商 %s 失败: %v", adapter.GetName(), err)
 			} else {
-				log.Printf("已注册供应商: %s", adapter.GetName())
+				log.Printf("已注册供应商: %s (优先级: %d, 控价系数: %.2f)", adapter.GetName(), priority, priceControl)
 			}
 		}
 	}

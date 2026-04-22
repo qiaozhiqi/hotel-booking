@@ -3,15 +3,17 @@ package models
 import "time"
 
 type Supplier struct {
-	ID          int       `json:"id"`
-	Name        string    `json:"name"`
-	Code        string    `json:"code"`
-	Description string    `json:"description"`
-	APIURL      string    `json:"api_url"`
-	APIKey      string    `json:"-"`
-	Status      string    `json:"status"`
-	CreatedAt   time.Time `json:"created_at"`
-	UpdatedAt   time.Time `json:"updated_at"`
+	ID           int       `json:"id"`
+	Name         string    `json:"name"`
+	Code         string    `json:"code"`
+	Description  string    `json:"description"`
+	APIURL       string    `json:"api_url"`
+	APIKey       string    `json:"-"`
+	Status       string    `json:"status"`
+	Priority     int       `json:"priority"`
+	PriceControl float64   `json:"price_control"`
+	CreatedAt    time.Time `json:"created_at"`
+	UpdatedAt    time.Time `json:"updated_at"`
 }
 
 type SupplierHotel struct {
@@ -138,4 +140,51 @@ type Response struct {
 	Code    int         `json:"code"`
 	Message string      `json:"message"`
 	Data    interface{} `json:"data,omitempty"`
+}
+
+type SupplierInfo struct {
+	ID           int     `json:"id"`
+	Name         string  `json:"name"`
+	Code         string  `json:"code"`
+	Description  string  `json:"description"`
+	Priority     int     `json:"priority"`
+	PriceControl float64 `json:"price_control"`
+}
+
+type HotelWithSupplier struct {
+	Hotel
+	Supplier *SupplierInfo `json:"supplier,omitempty"`
+}
+
+type RoomWithSupplier struct {
+	Room
+	Supplier *SupplierInfo `json:"supplier,omitempty"`
+}
+
+type ChannelPrice struct {
+	SupplierID     int     `json:"supplier_id"`
+	SupplierName   string  `json:"supplier_name"`
+	SupplierCode   string  `json:"supplier_code"`
+	Price          float64 `json:"price"`
+	OriginalPrice  float64 `json:"original_price"`
+	AvailableCount int     `json:"available_count"`
+	Priority       int     `json:"priority"`
+	IsBestPrice    bool    `json:"is_best_price"`
+}
+
+type RoomWithChannelPrices struct {
+	ID             int            `json:"id"`
+	HotelID        int            `json:"hotel_id"`
+	Name           string         `json:"name"`
+	Description    string         `json:"description"`
+	Price          float64        `json:"price"`
+	Capacity       int            `json:"capacity"`
+	Area           int            `json:"area"`
+	BedType        string         `json:"bed_type"`
+	Amenities      string         `json:"amenities"`
+	ImageURL       string         `json:"image_url"`
+	TotalCount     int            `json:"total_count"`
+	AvailableCount int            `json:"available_count"`
+	BestPrice      float64        `json:"best_price"`
+	ChannelPrices  []ChannelPrice `json:"channel_prices"`
 }
