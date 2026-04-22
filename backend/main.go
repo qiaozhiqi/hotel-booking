@@ -188,6 +188,45 @@ func initDatabaseTables() error {
 			)
 		`
 		
+		createRoomPriceSummarySQL := `
+			CREATE TABLE IF NOT EXISTS room_price_summary (
+				id INTEGER PRIMARY KEY AUTOINCREMENT,
+				supplier_id INTEGER NOT NULL,
+				supplier_hotel_id TEXT NOT NULL,
+				supplier_room_id TEXT NOT NULL,
+				min_price REAL NOT NULL DEFAULT 0.0,
+				max_price REAL NOT NULL DEFAULT 0.0,
+				avg_price REAL NOT NULL DEFAULT 0.0,
+				price_range TEXT,
+				has_inventory INTEGER NOT NULL DEFAULT 0,
+				total_count INTEGER NOT NULL DEFAULT 0,
+				date_range_start TEXT,
+				date_range_end TEXT,
+				created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+				updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+				UNIQUE(supplier_id, supplier_hotel_id, supplier_room_id)
+			)
+		`
+		
+		createHotelPriceSummarySQL := `
+			CREATE TABLE IF NOT EXISTS hotel_price_summary (
+				id INTEGER PRIMARY KEY AUTOINCREMENT,
+				supplier_id INTEGER NOT NULL,
+				supplier_hotel_id TEXT NOT NULL,
+				min_price REAL NOT NULL DEFAULT 0.0,
+				max_price REAL NOT NULL DEFAULT 0.0,
+				avg_price REAL NOT NULL DEFAULT 0.0,
+				price_range TEXT,
+				total_rooms INTEGER NOT NULL DEFAULT 0,
+				rooms_with_inventory INTEGER NOT NULL DEFAULT 0,
+				date_range_start TEXT,
+				date_range_end TEXT,
+				created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+				updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+				UNIQUE(supplier_id, supplier_hotel_id)
+			)
+		`
+		
 		db.Exec(createUsersSQL)
 		db.Exec(createHotelsSQL)
 		db.Exec(createRoomsSQL)
@@ -196,6 +235,8 @@ func initDatabaseTables() error {
 		db.Exec(createSupplierHotelsSQL)
 		db.Exec(createSupplierRoomsSQL)
 		db.Exec(createPriceInventorySQL)
+		db.Exec(createRoomPriceSummarySQL)
+		db.Exec(createHotelPriceSummarySQL)
 	} else {
 		createSuppliersSQL := `
 			CREATE TABLE IF NOT EXISTS suppliers (
@@ -279,10 +320,53 @@ func initDatabaseTables() error {
 			) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
 		`
 		
+		createRoomPriceSummarySQL := `
+			CREATE TABLE IF NOT EXISTS room_price_summary (
+				id INT AUTO_INCREMENT PRIMARY KEY,
+				supplier_id INT NOT NULL,
+				supplier_hotel_id VARCHAR(100) NOT NULL,
+				supplier_room_id VARCHAR(100) NOT NULL,
+				min_price DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+				max_price DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+				avg_price DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+				price_range VARCHAR(50),
+				has_inventory TINYINT(1) NOT NULL DEFAULT 0,
+				total_count INT NOT NULL DEFAULT 0,
+				date_range_start DATE,
+				date_range_end DATE,
+				created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+				updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+				UNIQUE KEY uk_room_summary (supplier_id, supplier_hotel_id, supplier_room_id),
+				KEY idx_supplier_id (supplier_id)
+			) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+		`
+		
+		createHotelPriceSummarySQL := `
+			CREATE TABLE IF NOT EXISTS hotel_price_summary (
+				id INT AUTO_INCREMENT PRIMARY KEY,
+				supplier_id INT NOT NULL,
+				supplier_hotel_id VARCHAR(100) NOT NULL,
+				min_price DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+				max_price DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+				avg_price DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+				price_range VARCHAR(50),
+				total_rooms INT NOT NULL DEFAULT 0,
+				rooms_with_inventory INT NOT NULL DEFAULT 0,
+				date_range_start DATE,
+				date_range_end DATE,
+				created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+				updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+				UNIQUE KEY uk_hotel_summary (supplier_id, supplier_hotel_id),
+				KEY idx_supplier_id (supplier_id)
+			) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+		`
+		
 		db.Exec(createSuppliersSQL)
 		db.Exec(createSupplierHotelsSQL)
 		db.Exec(createSupplierRoomsSQL)
 		db.Exec(createPriceInventorySQL)
+		db.Exec(createRoomPriceSummarySQL)
+		db.Exec(createHotelPriceSummarySQL)
 	}
 	
 	migrateDatabase()

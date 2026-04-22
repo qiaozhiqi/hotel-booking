@@ -205,6 +205,37 @@ type PriceInventory struct {
 	UpdatedAt      time.Time `json:"updated_at"`
 }
 
+type RoomPriceSummary struct {
+	ID             int       `json:"id"`
+	SupplierID     int       `json:"supplier_id"`
+	SupplierHotelID string   `json:"supplier_hotel_id"`
+	SupplierRoomID string    `json:"supplier_room_id"`
+	MinPrice       float64   `json:"min_price"`
+	MaxPrice       float64   `json:"max_price"`
+	AvgPrice       float64   `json:"avg_price"`
+	PriceRange     string    `json:"price_range"`
+	HasInventory   bool      `json:"has_inventory"`
+	TotalCount     int       `json:"total_count"`
+	DateRangeStart string    `json:"date_range_start"`
+	DateRangeEnd   string    `json:"date_range_end"`
+	UpdatedAt      time.Time `json:"updated_at"`
+}
+
+type HotelPriceSummary struct {
+	ID             int       `json:"id"`
+	SupplierID     int       `json:"supplier_id"`
+	SupplierHotelID string   `json:"supplier_hotel_id"`
+	MinPrice       float64   `json:"min_price"`
+	MaxPrice       float64   `json:"max_price"`
+	AvgPrice       float64   `json:"avg_price"`
+	PriceRange     string    `json:"price_range"`
+	TotalRooms     int       `json:"total_rooms"`
+	RoomsWithInventory int   `json:"rooms_with_inventory"`
+	DateRangeStart string    `json:"date_range_start"`
+	DateRangeEnd   string    `json:"date_range_end"`
+	UpdatedAt      time.Time `json:"updated_at"`
+}
+
 type QiuguoPushHotelData struct {
 	SupplierHotelID string                    `json:"hotel_id" binding:"required"`
 	Name            string                    `json:"name" binding:"required"`
