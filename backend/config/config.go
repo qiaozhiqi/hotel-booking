@@ -13,18 +13,28 @@ type Config struct {
 	DBPassword string
 	DBName     string
 	ServerPort int
+	RedisHost  string
+	RedisPort  int
+	RedisPassword string
+	RedisDB    int
+	EnableRedisCache bool
 }
 
 func GetConfig() *Config {
 	return &Config{
-		DBType:     "sqlite",
-		DBPath:     "./database/hotel_booking.db",
-		DBHost:     "localhost",
-		DBPort:     3306,
-		DBUser:     "root",
-		DBPassword: "root",
-		DBName:     "hotel_booking",
-		ServerPort: 8081,
+		DBType:          "sqlite",
+		DBPath:          "./database/hotel_booking.db",
+		DBHost:          "localhost",
+		DBPort:          3306,
+		DBUser:          "root",
+		DBPassword:      "root",
+		DBName:          "hotel_booking",
+		ServerPort:      8081,
+		RedisHost:       "localhost",
+		RedisPort:       6379,
+		RedisPassword:   "",
+		RedisDB:         0,
+		EnableRedisCache: true,
 	}
 }
 

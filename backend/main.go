@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"hotel-booking/cache"
 	"hotel-booking/config"
 	"hotel-booking/database"
 	"hotel-booking/routes"
@@ -556,9 +557,17 @@ func main() {
 		log.Printf("测试用户初始化警告: %v", err)
 	}
 	
+	cfg := config.GetConfig()
+	if cfg.EnableRedisCache {
+		err = cache.InitRedis()
+		if err != nil {
+			log.Printf("Redis连接失败，将禁用缓存功能: %v", err)
+			cfg.EnableRedisCache = false
+		}
+	}
+	
 	autoPullAllSuppliers()
 
-	cfg := config.GetConfig()
 	r := routes.SetupRouter()
 
 	log.Printf("服务器启动在端口 %d...", cfg.ServerPort)
