@@ -11,7 +11,13 @@
           <img :src="hotel.image_url" :alt="hotel.name" />
         </div>
         <div class="hotel-info-large">
-          <h1 class="hotel-name-large">{{ hotel.name }}</h1>
+          <h1 class="hotel-name-large">
+            {{ hotel.name }}
+            <span v-if="hotel.supplier" class="supplier-badge-large">
+              <span class="supplier-icon-large">🏢</span>
+              {{ getSupplierShortName(hotel.supplier.name) }}
+            </span>
+          </h1>
           <div class="hotel-meta">
             <div class="meta-item">
               <span class="meta-icon">📍</span>
@@ -22,6 +28,27 @@
               <span class="meta-text rating-high">{{ hotel.rating }} 分</span>
             </div>
           </div>
+          
+          <div v-if="hotel.supplier" class="supplier-info-section">
+            <div class="supplier-info-header">
+              <span class="supplier-label">房源供应商：</span>
+              <span class="supplier-name-large">{{ hotel.supplier.name }}</span>
+            </div>
+            <div class="supplier-info-details">
+              <span v-if="hotel.supplier.priority > 0" class="priority-badge">
+                <span class="priority-icon">🏆</span>
+                优先级 {{ hotel.supplier.priority }}
+              </span>
+              <span class="price-control-badge">
+                <span class="price-control-icon">💰</span>
+                控价系数 {{ hotel.supplier.price_control }}
+              </span>
+            </div>
+            <p v-if="hotel.supplier.description" class="supplier-desc">
+              {{ hotel.supplier.description }}
+            </p>
+          </div>
+          
           <p class="hotel-desc-large">{{ hotel.description }}</p>
           <div class="price-range-large">
             <span class="price-label">价格范围：</span>
@@ -31,7 +58,7 @@
       </div>
 
       <div class="rooms-section">
-        <h2 class="section-title">房型选择</h2>
+        <h2 class="section-title">房型选择 <span class="section-subtitle">支持多渠道比价预订</span></h2>
         
         <div class="room-list">
           <div 
@@ -43,7 +70,13 @@
               <img :src="room.image_url" :alt="room.name" />
             </div>
             <div class="room-info">
-              <h3 class="room-name">{{ room.name }}</h3>
+              <div class="room-header-row">
+                <h3 class="room-name">{{ room.name }}</h3>
+                <div v-if="room.best_price < room.price" class="best-price-tag">
+                  <span class="best-price-icon">🔥</span>
+                  最优价比
+                </div>
+              </div>
               <div class="room-features">
                 <span class="feature-tag">
                   <span class="feature-icon">🛏️</span>
@@ -63,6 +96,54 @@
                 <span class="amenities-label">设施：</span>
                 <span class="amenities-text">{{ room.amenities }}</span>
               </div>
+              
+              <div v-if="room.channel_prices && room.channel_prices.length > 0" class="channel-prices-section">
+                <div class="channel-prices-header">
+                  <span class="channel-prices-title">📊 渠道比价</span>
+                  <span class="channel-prices-count">共 {{ room.channel_prices.length }} 个渠道</span>
+                </div>
+                <div class="channel-prices-list">
+                  <div 
+                    v-for="(cp, index) in room.channel_prices" 
+                    :key="index" 
+                    class="channel-price-item"
+                    :class="{ 
+                      'best-price': cp.is_best_price && cp.available_count > 0,
+                      'out-of-stock': cp.available_count <= 0 
+                    }"
+                  >
+                    <div class="channel-price-info">
+                      <div class="channel-name-row">
+                        <span class="channel-name">{{ getSupplierShortName(cp.supplier_name) }}</span>
+                        <span v-if="cp.is_best_price && cp.available_count > 0" class="best-price-badge">最低价</span>
+                        <span v-if="cp.available_count <= 0" class="out-of-stock-badge">暂无房</span>
+                      </div>
+                      <div class="channel-details">
+                        <span v-if="cp.priority > 0" class="channel-priority">优先级 {{ cp.priority }}</span>
+                        <span class="channel-original-price" v-if="cp.price !== cp.original_price">
+                          原价 ¥{{ cp.original_price }}
+                        </span>
+                      </div>
+                    </div>
+                    <div class="channel-price-right">
+                      <div class="channel-price-display">
+                        <span class="channel-price-currency">¥</span>
+                        <span class="channel-price-value">{{ cp.price }}</span>
+                        <span class="channel-price-unit">/晚</span>
+                      </div>
+                      <div class="channel-availability">
+                        <span v-if="cp.available_count > 0" class="channel-available">
+                          剩余 {{ cp.available_count }} 间
+                        </span>
+                        <span v-else class="channel-unavailable">
+                          暂无空房
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              
               <div class="room-availability" :class="{ 'available': room.available_count > 0 }">
                 <span v-if="room.available_count > 0" class="available-text">
                   剩余 {{ room.available_count }} 间
@@ -73,8 +154,11 @@
             <div class="room-price-box">
               <div class="room-price">
                 <span class="price-currency">¥</span>
-                <span class="price-num">{{ room.price }}</span>
+                <span class="price-num">{{ room.best_price || room.price }}</span>
                 <span class="price-unit">/晚</span>
+                <span v-if="room.best_price < room.price" class="price-discount">
+                  省 ¥{{ Math.round(room.price - room.best_price) }}
+                </span>
               </div>
               <button 
                 class="btn-book" 
@@ -296,6 +380,39 @@ export default {
       showSuccessModal.value = false
     }
 
+    const getSupplierShortName = (name) => {
+      if (!name) return ''
+      const shortNames = {
+        '华住酒店集团': '华住',
+        '锦江国际酒店集团': '锦江',
+        '如家酒店集团': '如家',
+        '万豪国际酒店集团': '万豪',
+        '希尔顿酒店集团': '希尔顿',
+        '洲际酒店集团': '洲际',
+        '万达酒店集团': '万达',
+        '开元酒店集团': '开元',
+        '绿地酒店集团': '绿地',
+        '模拟供应商A': '供应商A',
+        '模拟供应商B': '供应商B',
+        '模拟供应商C': '供应商C'
+      }
+      for (let key in shortNames) {
+        if (name.includes(key) || name.includes(shortNames[key])) {
+          return shortNames[key]
+        }
+      }
+      if (name.includes('石基畅联')) {
+        if (name.includes('万豪')) return '万豪'
+        if (name.includes('希尔顿')) return '希尔顿'
+        if (name.includes('洲际')) return '洲际'
+        if (name.includes('开元')) return '开元'
+        if (name.includes('万达')) return '万达'
+        if (name.includes('绿地')) return '绿地'
+        return '石基畅联'
+      }
+      return name.slice(0, 4)
+    }
+
     onMounted(() => {
       loadHotelDetail()
     })
@@ -313,6 +430,7 @@ export default {
       nights,
       totalPrice,
       canSubmit,
+      getSupplierShortName,
       openBookingModal,
       closeBookingModal,
       submitBooking,
@@ -382,6 +500,101 @@ export default {
   font-weight: 600;
   color: #333;
   margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.supplier-badge-large {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  background: linear-gradient(135deg, #1a73e8 0%, #0d47a1 100%);
+  border-radius: 20px;
+  box-shadow: 0 2px 8px rgba(26, 115, 232, 0.3);
+}
+
+.supplier-icon-large {
+  font-size: 16px;
+}
+
+.supplier-badge-large .supplier-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: #fff;
+}
+
+.supplier-info-section {
+  background: linear-gradient(135deg, #f5f7fa 0%, #e4e8f0 100%);
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 16px;
+}
+
+.supplier-info-header {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.supplier-label {
+  font-size: 13px;
+  color: #666;
+}
+
+.supplier-name-large {
+  font-size: 15px;
+  font-weight: 600;
+  color: #1a73e8;
+}
+
+.supplier-info-details {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 8px;
+  flex-wrap: wrap;
+}
+
+.priority-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #fff;
+}
+
+.priority-icon {
+  font-size: 12px;
+}
+
+.price-control-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #fff;
+}
+
+.price-control-icon {
+  font-size: 12px;
+}
+
+.supplier-desc {
+  font-size: 12px;
+  color: #666;
+  line-height: 1.5;
+  margin: 0;
 }
 
 .hotel-meta {
@@ -450,6 +663,16 @@ export default {
   border-bottom: 1px solid #eee;
 }
 
+.section-subtitle {
+  font-size: 13px;
+  font-weight: 500;
+  color: #1a73e8;
+  background: rgba(26, 115, 232, 0.1);
+  padding: 4px 10px;
+  border-radius: 4px;
+  margin-left: 8px;
+}
+
 .room-list {
   display: flex;
   flex-direction: column;
@@ -496,6 +719,36 @@ export default {
   margin-bottom: 12px;
 }
 
+.room-header-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+
+.best-price-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #fff;
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.8; }
+}
+
+.best-price-icon {
+  font-size: 12px;
+}
+
 .room-features {
   display: flex;
   gap: 12px;
@@ -535,6 +788,158 @@ export default {
 
 .amenities-text {
   color: #666;
+}
+
+.channel-prices-section {
+  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+  border-radius: 8px;
+  padding: 12px;
+  margin-bottom: 12px;
+  border: 1px solid #e2e8f0;
+}
+
+.channel-prices-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.channel-prices-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #333;
+}
+
+.channel-prices-count {
+  font-size: 12px;
+  color: #666;
+}
+
+.channel-prices-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.channel-price-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 12px;
+  background: #fff;
+  border-radius: 6px;
+  border: 1px solid #e2e8f0;
+  transition: all 0.2s;
+}
+
+.channel-price-item:hover {
+  border-color: #1a73e8;
+  box-shadow: 0 2px 8px rgba(26, 115, 232, 0.15);
+}
+
+.channel-price-item.best-price {
+  border-color: #10b981;
+  background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%);
+  box-shadow: 0 2px 8px rgba(16, 185, 129, 0.2);
+}
+
+.channel-price-item.out-of-stock {
+  opacity: 0.6;
+  background: #f8fafc;
+}
+
+.channel-price-info {
+  flex: 1;
+}
+
+.channel-name-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.channel-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: #333;
+}
+
+.best-price-badge {
+  font-size: 11px;
+  font-weight: 600;
+  color: #fff;
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  padding: 2px 8px;
+  border-radius: 10px;
+}
+
+.out-of-stock-badge {
+  font-size: 11px;
+  font-weight: 600;
+  color: #fff;
+  background: linear-gradient(135deg, #64748b 0%, #475569 100%);
+  padding: 2px 8px;
+  border-radius: 10px;
+}
+
+.channel-details {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.channel-priority {
+  font-size: 12px;
+  color: #f59e0b;
+}
+
+.channel-original-price {
+  font-size: 12px;
+  color: #999;
+  text-decoration: line-through;
+}
+
+.channel-price-right {
+  text-align: right;
+}
+
+.channel-price-display {
+  display: flex;
+  align-items: baseline;
+  gap: 2px;
+  margin-bottom: 4px;
+}
+
+.channel-price-currency {
+  font-size: 12px;
+  color: #e74c3c;
+}
+
+.channel-price-value {
+  font-size: 20px;
+  font-weight: 600;
+  color: #e74c3c;
+}
+
+.channel-price-unit {
+  font-size: 11px;
+  color: #999;
+}
+
+.channel-availability {
+  font-size: 12px;
+}
+
+.channel-available {
+  color: #10b981;
+}
+
+.channel-unavailable {
+  color: #64748b;
 }
 
 .room-availability {
@@ -578,6 +983,16 @@ export default {
 .price-unit {
   font-size: 13px;
   color: #999;
+}
+
+.price-discount {
+  font-size: 12px;
+  font-weight: 600;
+  color: #10b981;
+  background: rgba(16, 185, 129, 0.1);
+  padding: 2px 8px;
+  border-radius: 4px;
+  margin-left: 8px;
 }
 
 .btn-book {

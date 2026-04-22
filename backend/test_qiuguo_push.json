@@ -1,0 +1,40 @@
+{
+  "request_id": "TEST-001",
+  "push_type": "full",
+  "hotels": [
+    {
+      "hotel_id": "QG-HOTEL-0001",
+      "name": "Qiuguo Hotel Beijing Zhongguancun",
+      "city": "Beijing",
+      "address": "No.100 Zhongguancun Street, Haidian District, Beijing",
+      "description": "Qiuguo Hotel located in Zhongguancun business district, convenient transportation and complete facilities.",
+      "rating": 4.5,
+      "image_url": "https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=modern%20hotel%20lobby&image_size=landscape_4_3",
+      "price_range": "¥280-¥580",
+      "rooms": [
+        {
+          "room_id": "QG-ROOM-0001-01",
+          "name": "Superior King Room",
+          "description": "Comfortable superior king room with high quality bedding.",
+          "capacity": 2,
+          "area": 26,
+          "bed_type": "King",
+          "amenities": "Free WiFi, Air conditioning, Smart TV, 24h hot water",
+          "image_url": "https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=modern%20hotel%20room%20king%20bed&image_size=landscape_4_3",
+          "total_count": 15
+        },
+        {
+          "room_id": "QG-ROOM-0001-02",
+          "name": "Superior Twin Room",
+          "description": "Clean and tidy superior twin room for double occupancy.",
+          "capacity": 2,
+          "area": 28,
+          "bed_type": "Twin",
+          "amenities": "Free WiFi, Air conditioning, Smart TV, 24h hot water",
+          "image_url": "https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=modern%20hotel%20room%20twin%20beds&image_size=landscape_4_3",
+          "total_count": 12
+        }
+      ]
+    }
+  ]
+}

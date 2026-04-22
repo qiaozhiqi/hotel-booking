@@ -1,0 +1,51 @@
+{
+  "request_id": "INCREMENTAL-20260422-001",
+  "push_type": "incremental",
+  "price_inventories": [
+    {
+      "hotel_id": "QG-HOTEL-0001",
+      "room_id": "QG-ROOM-0001-01",
+      "date": "2026-04-22",
+      "price": 320.0,
+      "original_price": 350.0,
+      "available_count": 5,
+      "total_count": 15
+    },
+    {
+      "hotel_id": "QG-HOTEL-0001",
+      "room_id": "QG-ROOM-0001-02",
+      "date": "2026-04-22",
+      "price": 290.0,
+      "original_price": 320.0,
+      "available_count": 3,
+      "total_count": 12
+    },
+    {
+      "hotel_id": "QG-HOTEL-0001",
+      "room_id": "QG-ROOM-0001-03",
+      "date": "2026-04-22",
+      "price": 370.0,
+      "original_price": 400.0,
+      "available_count": 0,
+      "total_count": 18
+    },
+    {
+      "hotel_id": "QG-HOTEL-0002",
+      "room_id": "QG-ROOM-0002-01",
+      "date": "2026-04-23",
+      "price": 300.0,
+      "original_price": 330.0,
+      "available_count": 8,
+      "total_count": 15
+    },
+    {
+      "hotel_id": "QG-HOTEL-0002",
+      "room_id": "QG-ROOM-0002-02",
+      "date": "2026-04-23",
+      "price": 270.0,
+      "original_price": 300.0,
+      "available_count": 10,
+      "total_count": 12
+    }
+  ]
+}

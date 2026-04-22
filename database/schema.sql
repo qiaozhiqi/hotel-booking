@@ -3,6 +3,64 @@ CREATE DATABASE IF NOT EXISTS hotel_booking DEFAULT CHARACTER SET utf8mb4 COLLAT
 
 USE hotel_booking;
 
+-- 供应商表
+CREATE TABLE IF NOT EXISTS suppliers (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    code VARCHAR(50) NOT NULL UNIQUE,
+    description TEXT,
+    api_url VARCHAR(255),
+    api_key VARCHAR(255),
+    status ENUM('active', 'inactive') DEFAULT 'active',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- 供应商酒店关联表
+CREATE TABLE IF NOT EXISTS supplier_hotels (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    supplier_id INT NOT NULL,
+    supplier_hotel_id VARCHAR(100) NOT NULL,
+    local_hotel_id INT NOT NULL,
+    hotel_name VARCHAR(100) NOT NULL,
+    city VARCHAR(50),
+    address VARCHAR(255),
+    rating DECIMAL(2,1) DEFAULT 0.0,
+    image_url VARCHAR(255),
+    price_range VARCHAR(50),
+    raw_data TEXT,
+    status ENUM('pending', 'synced', 'failed') DEFAULT 'pending',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY uk_supplier_hotel (supplier_id, supplier_hotel_id),
+    FOREIGN KEY (supplier_id) REFERENCES suppliers(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- 供应商房型关联表
+CREATE TABLE IF NOT EXISTS supplier_rooms (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    supplier_id INT NOT NULL,
+    supplier_hotel_id VARCHAR(100) NOT NULL,
+    supplier_room_id VARCHAR(100) NOT NULL,
+    local_room_id INT NOT NULL,
+    room_name VARCHAR(100) NOT NULL,
+    description TEXT,
+    price DECIMAL(10,2) NOT NULL,
+    capacity INT NOT NULL,
+    area INT,
+    bed_type VARCHAR(50),
+    amenities TEXT,
+    image_url VARCHAR(255),
+    total_count INT NOT NULL DEFAULT 1,
+    available_count INT NOT NULL DEFAULT 1,
+    raw_data TEXT,
+    status ENUM('pending', 'synced', 'failed') DEFAULT 'pending',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY uk_supplier_room (supplier_id, supplier_hotel_id, supplier_room_id),
+    FOREIGN KEY (supplier_id) REFERENCES suppliers(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 -- 用户表
 CREATE TABLE IF NOT EXISTS users (
     id INT AUTO_INCREMENT PRIMARY KEY,
@@ -24,6 +82,7 @@ CREATE TABLE IF NOT EXISTS hotels (
     rating DECIMAL(2,1) DEFAULT 0.0,
     image_url VARCHAR(255),
     price_range VARCHAR(50),
+    supplier_id INT DEFAULT 0,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
@@ -42,6 +101,7 @@ CREATE TABLE IF NOT EXISTS rooms (
     image_url VARCHAR(255),
     total_count INT NOT NULL DEFAULT 1,
     available_count INT NOT NULL DEFAULT 1,
+    supplier_id INT DEFAULT 0,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     FOREIGN KEY (hotel_id) REFERENCES hotels(id) ON DELETE CASCADE
