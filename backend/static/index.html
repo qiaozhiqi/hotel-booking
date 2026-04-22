@@ -1058,6 +1058,11 @@
     .apply-filter-btn { width: 100%; padding: 12px; background: linear-gradient(135deg, #1a73e8, #0d47a1); color: #fff; border: none; border-radius: 8px; font-size: 14px; font-weight: 500; cursor: pointer; margin-top: 12px; transition: all 0.2s; }
     .apply-filter-btn:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(26, 115, 232, 0.3); }
 
+    .filter-select { width: 100%; padding: 10px 12px; font-size: 14px; color: #333; background: #f8f9fa; border: 1px solid #e0e0e0; border-radius: 8px; cursor: pointer; transition: all 0.2s; }
+    .filter-select:hover { background: #fff; border-color: #1a73e8; }
+    .filter-select:focus { outline: none; border-color: #1a73e8; background: #fff; box-shadow: 0 0 0 3px rgba(26, 115, 232, 0.1); }
+    .filter-select-label { display: block; font-size: 13px; font-weight: 600; color: #333; margin-bottom: 8px; }
+
     .hidden { display: none !important; }
   </style>
 </head>
@@ -1322,49 +1327,30 @@
               </div>
               
               <div class="filter-group">
-                <div class="filter-group-header" data-filter-group="rating">
+                <div class="filter-group-header" data-filter-group="rating" style="padding-bottom: 8px;">
                   <span>酒店星级</span>
-                  <span class="filter-toggle" data-toggle="rating">−</span>
                 </div>
                 <div class="filter-content" data-content="rating">
-                  <div class="rating-options">
-                    <div class="rating-option ${state.filters.ratingMin === 0 ? 'active' : ''}" data-rating="0">
-                      <span>不限</span>
-                      <span>全部星级</span>
-                    </div>
-                    <div class="rating-option ${state.filters.ratingMin === 3 ? 'active' : ''}" data-rating="3">
-                      <span>⭐⭐⭐</span>
-                      <span>三星及以上</span>
-                    </div>
-                    <div class="rating-option ${state.filters.ratingMin === 4 ? 'active' : ''}" data-rating="4">
-                      <span>⭐⭐⭐⭐</span>
-                      <span>四星及以上</span>
-                    </div>
-                    <div class="rating-option ${state.filters.ratingMin === 4.5 ? 'active' : ''}" data-rating="4.5">
-                      <span>⭐⭐⭐⭐⭐</span>
-                      <span>五星及以上</span>
-                    </div>
-                  </div>
+                  <select class="filter-select" id="rating-select">
+                    <option value="0" ${state.filters.ratingMin === 0 ? 'selected' : ''}>不限星级</option>
+                    <option value="3" ${state.filters.ratingMin === 3 ? 'selected' : ''}>⭐⭐⭐ 三星及以上</option>
+                    <option value="4" ${state.filters.ratingMin === 4 ? 'selected' : ''}>⭐⭐⭐⭐ 四星及以上</option>
+                    <option value="4.5" ${state.filters.ratingMin === 4.5 ? 'selected' : ''}>⭐⭐⭐⭐⭐ 五星及以上</option>
+                  </select>
                 </div>
               </div>
               
               <div class="filter-group">
-                <div class="filter-group-header" data-filter-group="bedType">
+                <div class="filter-group-header" data-filter-group="bedType" style="padding-bottom: 8px;">
                   <span>床型</span>
-                  <span class="filter-toggle" data-toggle="bedType">−</span>
                 </div>
                 <div class="filter-content" data-content="bedType">
-                  <div class="bed-type-options">
-                    <div class="bed-type-option ${state.filters.bedType === '' ? 'active' : ''}" data-bed-type="">
-                      <span class="bed-type-text">全部</span>
-                    </div>
+                  <select class="filter-select" id="bed-type-select">
+                    <option value="" ${state.filters.bedType === '' ? 'selected' : ''}>全部床型</option>
                     ${bedTypes.map(bt => `
-                    <div class="bed-type-option ${state.filters.bedType === bt ? 'active' : ''}" data-bed-type="${bt}">
-                      <span class="bed-type-icon">🛏️</span>
-                      <span class="bed-type-text">${bt}</span>
-                    </div>
+                    <option value="${bt}" ${state.filters.bedType === bt ? 'selected' : ''}>🛏️ ${bt}</option>
                     `).join('')}
-                  </div>
+                  </select>
                 </div>
               </div>
               
@@ -1683,21 +1669,20 @@
         });
       });
 
-      const ratingOptions = document.querySelectorAll('.rating-option');
-      ratingOptions.forEach(option => {
-        option.addEventListener('click', function() {
-          const rating = parseFloat(this.dataset.rating);
-          selectRating(rating);
+      const ratingSelect = document.getElementById('rating-select');
+      if (ratingSelect) {
+        ratingSelect.addEventListener('change', function() {
+          const rating = parseFloat(this.value);
+          state.filters.ratingMin = rating;
         });
-      });
+      }
 
-      const bedTypeOptions = document.querySelectorAll('.bed-type-option');
-      bedTypeOptions.forEach(option => {
-        option.addEventListener('click', function() {
-          const bedType = this.dataset.bedType;
-          selectBedType(bedType);
+      const bedTypeSelect = document.getElementById('bed-type-select');
+      if (bedTypeSelect) {
+        bedTypeSelect.addEventListener('change', function() {
+          state.filters.bedType = this.value;
         });
-      });
+      }
 
       const amenityOptions = document.querySelectorAll('.amenity-option');
       amenityOptions.forEach(option => {
@@ -1711,7 +1696,9 @@
       filterHeaders.forEach(header => {
         header.addEventListener('click', function() {
           const group = this.dataset.filterGroup;
-          toggleFilterGroup(group);
+          if (group === 'amenities' || group === 'price') {
+            toggleFilterGroup(group);
+          }
         });
       });
     }
@@ -1810,25 +1797,11 @@
       updatePriceDisplay();
       updateSliderFill();
       
-      const allRatingOptions = document.querySelectorAll('.rating-option');
-      allRatingOptions.forEach(option => {
-        const rating = parseFloat(option.dataset.rating);
-        if (rating === 0) {
-          option.classList.add('active');
-        } else {
-          option.classList.remove('active');
-        }
-      });
+      const ratingSelect = document.getElementById('rating-select');
+      if (ratingSelect) ratingSelect.value = '0';
       
-      const allBedTypeOptions = document.querySelectorAll('.bed-type-option');
-      allBedTypeOptions.forEach(option => {
-        const bt = option.dataset.bedType;
-        if (bt === '') {
-          option.classList.add('active');
-        } else {
-          option.classList.remove('active');
-        }
-      });
+      const bedTypeSelect = document.getElementById('bed-type-select');
+      if (bedTypeSelect) bedTypeSelect.value = '';
       
       const allAmenityOptions = document.querySelectorAll('.amenity-option');
       allAmenityOptions.forEach(option => {
