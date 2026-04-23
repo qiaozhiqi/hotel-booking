@@ -1298,7 +1298,7 @@
     }
 
     .calendar-day.selected .day-number {
-      color: #fff;
+      color: #fff !important;
       font-weight: 800;
     }
 
@@ -1317,17 +1317,21 @@
     }
 
     .calendar-day.in-range .day-number {
-      color: #1e40af;
+      color: #1e40af !important;
       font-weight: 600;
     }
 
     .calendar-day.in-range .day-price {
-      color: #2563eb;
+      color: #2563eb !important;
     }
 
     .calendar-day.hover-range {
       background: #f0f9ff;
       border-color: #bfdbfe;
+    }
+
+    .calendar-day.hover-range .day-number {
+      color: #1e40af !important;
     }
 
     .calendar-day.weekend .day-number {
@@ -1337,7 +1341,7 @@
     .calendar-day.weekend.selected .day-number,
     .calendar-day.weekend.in-range .day-number,
     .calendar-day.weekend.hover-range .day-number {
-      color: inherit;
+      color: inherit !important;
     }
 
     .day-number {
@@ -2015,113 +2019,6 @@
       }
       state.calendar.currentMonth = current;
       renderCalendar();
-    }
-
-    function renderCalendar() {
-      const calendarContainer = document.getElementById('calendar-container');
-      if (!calendarContainer) return;
-
-      const year = state.calendar.currentMonth.getFullYear();
-      const month = state.calendar.currentMonth.getMonth();
-      const firstDay = new Date(year, month, 1);
-      const lastDay = new Date(year, month + 1, 0);
-      const today = new Date(getToday());
-      today.setHours(0, 0, 0, 0);
-
-      const weekdays = ['日', '一', '二', '三', '四', '五', '六'];
-      const monthNames = ['一月', '二月', '三月', '四月', '五月', '六月', 
-                          '七月', '八月', '九月', '十月', '十一月', '十二月'];
-
-      const startDayOfWeek = firstDay.getDay();
-      const daysInMonth = lastDay.getDate();
-
-      const basePrice = state.rooms.length > 0 ? (state.rooms[0].best_price || state.rooms[0].price) : 0;
-
-      let daysHtml = '';
-
-      for (let i = 0; i < startDayOfWeek; i++) {
-        daysHtml += `<div class="calendar-day empty"></div>`;
-      }
-
-      for (let day = 1; day <= daysInMonth; day++) {
-        const date = new Date(year, month, day);
-        const dateStr = date.toISOString().split('T')[0];
-        const selectable = isDateSelectable(dateStr);
-        const isTodayDate = date.getTime() === today.getTime();
-        const isWeekendDate = isWeekend(dateStr);
-        const isCheckIn = dateStr === state.calendar.checkIn;
-        const isCheckOut = dateStr === state.calendar.checkOut;
-        
-        let isInRange = false;
-        if (state.calendar.checkIn && state.calendar.checkOut) {
-          const checkInDate = new Date(state.calendar.checkIn);
-          const checkOutDate = new Date(state.calendar.checkOut);
-          isInRange = date > checkInDate && date < checkOutDate;
-        }
-
-        const dayPrice = basePrice > 0 ? getDayPrice(dateStr, basePrice) : null;
-
-        let classes = 'calendar-day';
-        if (!selectable) classes += ' disabled';
-        if (isTodayDate) classes += ' today';
-        if (isCheckIn || isCheckOut) classes += ' selected';
-        if (isInRange) classes += ' in-range';
-        if (isWeekendDate) classes += ' weekend';
-
-        let checkIndicator = '';
-        if (isCheckIn) checkIndicator += '<span class="day-check-indicator check-in">入住</span>';
-        if (isCheckOut) checkIndicator += '<span class="day-check-indicator check-out">离店</span>';
-
-        daysHtml += `
-          <div class="${classes}" onclick="selectCalendarDate('${dateStr}')" data-date="${dateStr}">
-            ${checkIndicator}
-            <span class="day-number">${day}</span>
-            ${dayPrice ? `<span class="day-price">¥${dayPrice}</span>` : ''}
-          </div>
-        `;
-      }
-
-      const maxDateObj = new Date(getMaxDate());
-      const canGoNext = !(month === maxDateObj.getMonth() && year === maxDateObj.getFullYear());
-      const canGoPrev = !(month === today.getMonth() && year === today.getFullYear());
-
-      calendarContainer.innerHTML = `
-        <div class="calendar-header">
-          <button class="calendar-nav-btn" onclick="prevMonth()" ${!canGoPrev ? 'disabled' : ''}>‹</button>
-          <span class="calendar-month">${year}年 ${monthNames[month]}</span>
-          <button class="calendar-nav-btn" onclick="nextMonth()" ${!canGoNext ? 'disabled' : ''}>›</button>
-        </div>
-        <div class="calendar-weekdays">
-          ${weekdays.map((w, i) => `
-            <div class="calendar-weekday ${(i === 0 || i === 6) ? 'weekend' : ''}">${w}</div>
-          `).join('')}
-        </div>
-        <div class="calendar-days">
-          ${daysHtml}
-        </div>
-        <div class="price-legend">
-          <div class="price-legend-item">
-            <span class="price-legend-dot selected"></span>
-            <span>入住/离店</span>
-          </div>
-          <div class="price-legend-item">
-            <span class="price-legend-dot in-range"></span>
-            <span>日期范围</span>
-          </div>
-          <div class="price-legend-item">
-            <span class="price-legend-dot weekend"></span>
-            <span>周末溢价</span>
-          </div>
-          <div class="price-legend-item">
-            <span class="price-legend-dot disabled"></span>
-            <span>不可选</span>
-          </div>
-        </div>
-        <div class="calendar-tip">
-          <span class="calendar-tip-icon">💡</span>
-          <span>点击日期选择入住和离店日期，周末价格上浮20%，仅可选择未来90天内的日期</span>
-        </div>
-      `;
     }
 
     function updateDateFilterInfo() {
@@ -3337,6 +3234,20 @@
     document.addEventListener('DOMContentLoaded', () => {
       initUser();
       router.init();
+      
+      document.addEventListener('click', (e) => {
+        const trigger = document.getElementById('date-picker-trigger');
+        const dropdown = document.getElementById('calendar-dropdown');
+        
+        if (trigger && dropdown) {
+          const isClickInsideTrigger = trigger.contains(e.target);
+          const isClickInsideDropdown = dropdown.contains(e.target);
+          
+          if (!isClickInsideTrigger && !isClickInsideDropdown && !dropdown.classList.contains('hidden')) {
+            closeCalendarDropdown();
+          }
+        }
+      });
     });
   </script>
 </body>
