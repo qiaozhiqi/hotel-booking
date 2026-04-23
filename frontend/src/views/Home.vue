@@ -14,11 +14,11 @@
           </div>
           <div class="search-item">
             <label class="search-label">入住日期</label>
-            <input type="date" v-model="checkIn" class="search-input" :min="today" />
+            <input type="date" v-model="checkIn" class="search-input" :min="today" :max="maxDate" />
           </div>
           <div class="search-item">
             <label class="search-label">离店日期</label>
-            <input type="date" v-model="checkOut" class="search-input" :min="checkIn" />
+            <input type="date" v-model="checkOut" class="search-input" :min="checkIn" :max="maxDate" />
           </div>
           <button class="search-btn" @click="searchHotels">
             <span class="search-icon">🔍</span>
@@ -249,6 +249,7 @@ export default {
     
     const today = new Date().toISOString().split('T')[0]
     const tomorrow = new Date(Date.now() + 86400000).toISOString().split('T')[0]
+    const maxDate = new Date(Date.now() + 90 * 86400000).toISOString().split('T')[0]
     
     const cities = ref([])
     const selectedCity = ref('')
@@ -489,6 +490,7 @@ export default {
 
     return {
       today,
+      maxDate,
       cities,
       selectedCity,
       checkIn,

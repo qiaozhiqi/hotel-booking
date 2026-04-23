@@ -57,6 +57,99 @@
         </div>
       </div>
 
+      <div class="date-filter-section">
+        <div class="date-filter-header">
+          <h2 class="section-title">选择入住日期</h2>
+          <div class="date-summary" v-if="calendarNights > 0">
+            <span class="date-range-display">
+              <span class="date-display-item">
+                <span class="date-display-label">入住</span>
+                <span class="date-display-value">{{ checkInDate }}</span>
+              </span>
+              <span class="date-arrow">→</span>
+              <span class="date-display-item">
+                <span class="date-display-label">离店</span>
+                <span class="date-display-value">{{ checkOutDate }}</span>
+              </span>
+            </span>
+            <span class="nights-badge">共 {{ calendarNights }} 晚</span>
+          </div>
+        </div>
+        
+        <div class="calendar-wrapper">
+          <div class="calendar-nav">
+            <button 
+              class="nav-btn" 
+              :disabled="!canShowPrevMonth"
+              @click="prevMonth"
+            >
+              ‹
+            </button>
+            <span class="month-label">{{ currentMonthLabel }}</span>
+            <button class="nav-btn" @click="nextMonth">›</button>
+          </div>
+          
+          <div class="calendar-weekdays">
+            <span class="weekday">日</span>
+            <span class="weekday">一</span>
+            <span class="weekday">二</span>
+            <span class="weekday">三</span>
+            <span class="weekday">四</span>
+            <span class="weekday">五</span>
+            <span class="weekday">六</span>
+          </div>
+          
+          <div class="calendar-days">
+            <div 
+              v-for="(day, index) in calendarDays" 
+              :key="index"
+              class="calendar-day"
+              :class="{
+                'other-month': day.isOtherMonth,
+                'disabled': !day.isSelectable && !day.isOtherMonth,
+                'in-range': day.isInRange,
+                'check-in': day.isCheckIn,
+                'check-out': day.isCheckOut
+              }"
+              @click="selectDate(day)"
+            >
+              <span v-if="day.day !== ''" class="day-number">{{ day.day }}</span>
+              <span 
+                v-if="day.day !== '' && day.isSelectable && day.minPrice > 0" 
+                class="day-price"
+              >
+                ¥{{ day.minPrice }}
+              </span>
+              <span 
+                v-if="day.day !== '' && !day.isSelectable" 
+                class="day-disabled-text"
+              >
+                不可选
+              </span>
+            </div>
+          </div>
+        </div>
+        
+        <div class="date-hint">
+          <span class="hint-item">
+            <span class="hint-icon hint-blue"></span>
+            <span class="hint-text">入住日期</span>
+          </span>
+          <span class="hint-item">
+            <span class="hint-icon hint-light-blue"></span>
+            <span class="hint-text">入住期间</span>
+          </span>
+          <span class="hint-item">
+            <span class="hint-icon hint-blue"></span>
+            <span class="hint-text">离店日期</span>
+          </span>
+          <span class="hint-item">
+            <span class="hint-icon hint-gray"></span>
+            <span class="hint-text">不可选日期</span>
+          </span>
+        </div>
+      </div>
+
       <div class="rooms-section">
         <h2 class="section-title">房型选择 <span class="section-subtitle">支持多渠道比价预订</span></h2>
         
@@ -201,11 +294,11 @@
             <div class="form-row">
               <div class="form-group">
                 <label class="form-label">入住日期</label>
-                <input type="date" v-model="bookingForm.checkIn" class="form-input" :min="today" />
+                <input type="date" v-model="bookingForm.checkIn" class="form-input" :min="today" :max="maxDate" />
               </div>
               <div class="form-group">
                 <label class="form-label">离店日期</label>
-                <input type="date" v-model="bookingForm.checkOut" class="form-input" :min="bookingForm.checkIn" />
+                <input type="date" v-model="bookingForm.checkOut" class="form-input" :min="bookingForm.checkIn" :max="maxDate" />
               </div>
             </div>
 
@@ -270,6 +363,7 @@ export default {
 
     const today = new Date().toISOString().split('T')[0]
     const tomorrow = new Date(Date.now() + 86400000).toISOString().split('T')[0]
+    const maxDate = new Date(Date.now() + 90 * 86400000).toISOString().split('T')[0]
 
     const loading = ref(true)
     const hotel = ref(null)
@@ -279,6 +373,10 @@ export default {
     const selectedRoom = ref(null)
     const showSuccessModal = ref(false)
     const submitting = ref(false)
+
+    const checkInDate = ref(today)
+    const checkOutDate = ref(tomorrow)
+    const currentMonth = ref(new Date())
 
     const bookingForm = ref({
       checkIn: today,
@@ -327,8 +425,8 @@ export default {
     const openBookingModal = (room) => {
       selectedRoom.value = room
       bookingForm.value = {
-        checkIn: today,
-        checkOut: tomorrow,
+        checkIn: checkInDate.value,
+        checkOut: checkOutDate.value,
         guestName: '',
         guestPhone: ''
       }
@@ -380,6 +478,144 @@ export default {
       showSuccessModal.value = false
     }
 
+    const formatDate = (date) => {
+      const year = date.getFullYear()
+      const month = String(date.getMonth() + 1).padStart(2, '0')
+      const day = String(date.getDate()).padStart(2, '0')
+      return `${year}-${month}-${day}`
+    }
+
+    const getRoomPrice = (room, dateStr) => {
+      if (!room) return 0
+      const basePrice = room.best_price || room.price
+      const date = new Date(dateStr)
+      const dayOfWeek = date.getDay()
+      
+      let priceMultiplier = 1.0
+      if (dayOfWeek === 5 || dayOfWeek === 6) {
+        priceMultiplier = 1.15
+      }
+      if (dayOfWeek === 0) {
+        priceMultiplier = 1.05
+      }
+      
+      const dateSeed = dateStr.split('-').join('')
+      const pseudoRandom = (parseInt(dateSeed) % 7) * 0.02
+      
+      return Math.round(basePrice * (priceMultiplier + pseudoRandom - 0.06))
+    }
+
+    const isDateSelectable = (dateStr) => {
+      return dateStr >= today && dateStr <= maxDate
+    }
+
+    const isDateInRange = (dateStr) => {
+      return dateStr >= checkInDate.value && dateStr <= checkOutDate.value
+    }
+
+    const isCheckInDate = (dateStr) => {
+      return dateStr === checkInDate.value
+    }
+
+    const isCheckOutDate = (dateStr) => {
+      return dateStr === checkOutDate.value
+    }
+
+    const getMinPriceForDate = (dateStr) => {
+      if (!rooms.value || rooms.value.length === 0) return 0
+      let minPrice = Infinity
+      for (const room of rooms.value) {
+        const price = getRoomPrice(room, dateStr)
+        if (price < minPrice) {
+          minPrice = price
+        }
+      }
+      return minPrice === Infinity ? 0 : minPrice
+    }
+
+    const calendarDays = computed(() => {
+      const year = currentMonth.value.getFullYear()
+      const month = currentMonth.value.getMonth()
+      
+      const firstDay = new Date(year, month, 1)
+      const lastDay = new Date(year, month + 1, 0)
+      
+      const days = []
+      
+      const firstDayOfWeek = firstDay.getDay()
+      for (let i = 0; i < firstDayOfWeek; i++) {
+        days.push({ day: '', date: '', isOtherMonth: true })
+      }
+      
+      for (let d = 1; d <= lastDay.getDate(); d++) {
+        const date = new Date(year, month, d)
+        const dateStr = formatDate(date)
+        const isSelectable = isDateSelectable(dateStr)
+        const minPrice = isSelectable ? getMinPriceForDate(dateStr) : 0
+        
+        days.push({
+          day: d,
+          date: dateStr,
+          isSelectable,
+          isInRange: isDateInRange(dateStr),
+          isCheckIn: isCheckInDate(dateStr),
+          isCheckOut: isCheckOutDate(dateStr),
+          minPrice
+        })
+      }
+      
+      return days
+    })
+
+    const currentMonthLabel = computed(() => {
+      const year = currentMonth.value.getFullYear()
+      const month = currentMonth.value.getMonth() + 1
+      return `${year}年${month}月`
+    })
+
+    const prevMonth = () => {
+      const newMonth = new Date(currentMonth.value)
+      newMonth.setMonth(newMonth.getMonth() - 1)
+      currentMonth.value = newMonth
+    }
+
+    const nextMonth = () => {
+      const newMonth = new Date(currentMonth.value)
+      newMonth.setMonth(newMonth.getMonth() + 1)
+      currentMonth.value = newMonth
+    }
+
+    const selectDate = (day) => {
+      if (!day.isSelectable) return
+      
+      const dateStr = day.date
+      
+      if (!checkInDate.value || dateStr < checkInDate.value || 
+          (checkInDate.value && checkOutDate.value && dateStr <= checkOutDate.value)) {
+        checkInDate.value = dateStr
+        const nextDay = new Date(dateStr)
+        nextDay.setDate(nextDay.getDate() + 1)
+        checkOutDate.value = formatDate(nextDay)
+      } else if (dateStr > checkInDate.value) {
+        checkOutDate.value = dateStr
+      }
+    }
+
+    const calendarNights = computed(() => {
+      if (!checkInDate.value || !checkOutDate.value) return 0
+      const checkIn = new Date(checkInDate.value)
+      const checkOut = new Date(checkOutDate.value)
+      const diff = checkOut.getTime() - checkIn.getTime()
+      return Math.max(0, Math.floor(diff / (1000 * 60 * 60 * 24)))
+    })
+
+    const canShowPrevMonth = computed(() => {
+      const firstDayOfCurrentMonth = new Date(currentMonth.value.getFullYear(), currentMonth.value.getMonth(), 1)
+      const todayDate = new Date(today)
+      todayDate.setDate(todayDate.getDate() - 1)
+      return firstDayOfCurrentMonth > todayDate
+    })
+
     const getSupplierShortName = (name) => {
       if (!name) return ''
       const shortNames = {
@@ -419,9 +655,13 @@ export default {
 
     return {
       today,
+      maxDate,
       loading,
       hotel,
       rooms,
+      checkInDate,
+      checkOutDate,
+      currentMonth,
       showBookingModal,
       selectedRoom,
       showSuccessModal,
@@ -430,7 +670,15 @@ export default {
       nights,
       totalPrice,
       canSubmit,
+      calendarDays,
+      currentMonthLabel,
+      calendarNights,
+      canShowPrevMonth,
       getSupplierShortName,
+      getRoomPrice,
+      prevMonth,
+      nextMonth,
+      selectDate,
       openBookingModal,
       closeBookingModal,
       submitBooking,
@@ -645,6 +893,245 @@ export default {
   font-size: 24px;
   font-weight: 600;
   color: #e74c3c;
+}
+
+.date-filter-section {
+  background: #fff;
+  border-radius: 12px;
+  padding: 24px;
+  margin-bottom: 30px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+}
+
+.date-filter-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.date-summary {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.date-range-display {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 20px;
+  background: linear-gradient(135deg, #f5f7fa 0%, #e4e8f0 100%);
+  border-radius: 8px;
+}
+
+.date-display-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.date-display-label {
+  font-size: 12px;
+  color: #999;
+}
+
+.date-display-value {
+  font-size: 15px;
+  font-weight: 600;
+  color: #333;
+}
+
+.date-arrow {
+  font-size: 18px;
+  color: #1a73e8;
+}
+
+.nights-badge {
+  padding: 8px 16px;
+  background: linear-gradient(135deg, #1a73e8 0%, #0d47a1 100%);
+  color: #fff;
+  border-radius: 20px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.calendar-wrapper {
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.calendar-nav {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 20px;
+  background: #fafafa;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.nav-btn {
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #fff;
+  border: 1px solid #e0e0e0;
+  border-radius: 50%;
+  font-size: 18px;
+  color: #666;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.nav-btn:hover:not(:disabled) {
+  background: #1a73e8;
+  border-color: #1a73e8;
+  color: #fff;
+}
+
+.nav-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.month-label {
+  font-size: 16px;
+  font-weight: 600;
+  color: #333;
+}
+
+.calendar-weekdays {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  padding: 12px 0;
+  background: #fafafa;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.weekday {
+  text-align: center;
+  font-size: 13px;
+  font-weight: 600;
+  color: #666;
+}
+
+.calendar-days {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 1px;
+  background: #e0e0e0;
+  padding: 1px;
+}
+
+.calendar-day {
+  background: #fff;
+  padding: 12px 8px;
+  text-align: center;
+  cursor: pointer;
+  min-height: 60px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  transition: all 0.2s;
+  position: relative;
+}
+
+.calendar-day:hover:not(.other-month):not(.disabled) {
+  background: #f5f7fa;
+}
+
+.calendar-day.other-month {
+  background: #fafafa;
+  cursor: default;
+  opacity: 0.3;
+}
+
+.calendar-day.disabled {
+  background: #f5f5f5;
+  cursor: not-allowed;
+}
+
+.calendar-day.disabled .day-number {
+  color: #ccc;
+}
+
+.calendar-day.in-range {
+  background: rgba(26, 115, 232, 0.1);
+}
+
+.calendar-day.check-in,
+.calendar-day.check-out {
+  background: linear-gradient(135deg, #1a73e8 0%, #0d47a1 100%);
+}
+
+.calendar-day.check-in .day-number,
+.calendar-day.check-out .day-number,
+.calendar-day.check-in .day-price,
+.calendar-day.check-out .day-price {
+  color: #fff;
+}
+
+.day-number {
+  font-size: 15px;
+  font-weight: 600;
+  color: #333;
+  margin-bottom: 4px;
+}
+
+.day-price {
+  font-size: 12px;
+  font-weight: 500;
+  color: #e74c3c;
+}
+
+.day-disabled-text {
+  font-size: 11px;
+  color: #ccc;
+}
+
+.date-hint {
+  display: flex;
+  justify-content: center;
+  gap: 24px;
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid #f0f0f0;
+  flex-wrap: wrap;
+}
+
+.hint-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: #666;
+}
+
+.hint-icon {
+  width: 16px;
+  height: 16px;
+  border-radius: 4px;
+}
+
+.hint-blue {
+  background: linear-gradient(135deg, #1a73e8 0%, #0d47a1 100%);
+}
+
+.hint-light-blue {
+  background: rgba(26, 115, 232, 0.1);
+  border: 1px solid rgba(26, 115, 232, 0.3);
+}
+
+.hint-gray {
+  background: #f5f5f5;
+  border: 1px solid #e0e0e0;
 }
 
 .rooms-section {
