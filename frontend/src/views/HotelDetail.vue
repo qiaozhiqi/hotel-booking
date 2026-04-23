@@ -381,15 +381,38 @@
               </div>
 
               <div v-if="guests.length === 0 && !showGuestForm" class="guest-empty">
-                <p class="guest-empty-text">暂无常用入住人，您可以：</p>
+                <p class="guest-empty-text">暂无常用入住人</p>
                 <div class="guest-empty-actions">
                   <button class="btn-add-guest" @click="openAddGuestForm">
                     添加常用入住人
                   </button>
-                  <span class="guest-or">或</span>
-                  <button class="btn-manual-input" @click="clearSelectedGuest">
-                    手动填写
-                  </button>
+                </div>
+                <div class="manual-input-section-first">
+                  <div class="manual-input-header">
+                    <span class="manual-input-label">或手动填写入住人</span>
+                  </div>
+                  <div class="form-row">
+                    <div class="form-group">
+                      <label class="form-label">入住人姓名</label>
+                      <input type="text" v-model="bookingForm.guestName" class="form-input" placeholder="请输入姓名" />
+                    </div>
+                    <div class="form-group">
+                      <label class="form-label">联系电话</label>
+                      <input type="tel" v-model="bookingForm.guestPhone" class="form-input" placeholder="请输入手机号" />
+                    </div>
+                  </div>
+                  <div class="save-guest-option">
+                    <label class="checkbox-label">
+                      <input type="checkbox" v-model="saveAsGuest" />
+                      <span>保存为常用入住人</span>
+                    </label>
+                  </div>
+                  <div class="save-guest-option" v-if="saveAsGuest">
+                    <label class="checkbox-label">
+                      <input type="checkbox" v-model="setAsDefault" />
+                      <span>设为默认入住人</span>
+                    </label>
+                  </div>
                 </div>
               </div>
 
@@ -412,8 +435,14 @@
                 </div>
                 <div class="save-guest-option">
                   <label class="checkbox-label">
-                    <input type="checkbox" v-model="guestForm.isDefault" />
+                    <input type="checkbox" v-model="saveAsGuest" />
                     <span>保存为常用入住人</span>
+                  </label>
+                </div>
+                <div class="save-guest-option" v-if="saveAsGuest">
+                  <label class="checkbox-label">
+                    <input type="checkbox" v-model="setAsDefault" />
+                    <span>设为默认入住人</span>
                   </label>
                 </div>
               </div>
@@ -495,6 +524,8 @@ export default {
       isDefault: false
     })
     const savingGuest = ref(false)
+    const saveAsGuest = ref(false)
+    const setAsDefault = ref(false)
 
     const bookingForm = ref({
       checkIn: today,
@@ -630,6 +661,8 @@ export default {
       }
       selectedGuest.value = null
       showGuestForm.value = false
+      saveAsGuest.value = false
+      setAsDefault.value = false
       
       await loadGuests()
       
@@ -661,6 +694,23 @@ export default {
 
       submitting.value = true
       try {
+        if (saveAsGuest.value && !bookingForm.value.guestID && bookingForm.value.guestName && bookingForm.value.guestPhone) {
+          try {
+            const guestRes = await guestApi.create({
+              name: bookingForm.value.guestName,
+              phone: bookingForm.value.guestPhone,
+              idType: '',
+              idNumber: '',
+              isDefault: setAsDefault.value
+            })
+            if (guestRes.code === 200) {
+              await loadGuests()
+            }
+          } catch (e) {
+            console.error('保存入住人失败:', e)
+          }
+        }
+
         const orderData = {
           hotel_id: hotel.value.id,
           room_id: selectedRoom.value.id,
@@ -905,6 +955,8 @@ export default {
       showGuestForm,
       guestForm,
       savingGuest,
+      saveAsGuest,
+      setAsDefault,
       selectGuest,
       clearSelectedGuest,
       openAddGuestForm,
@@ -2299,6 +2351,12 @@ export default {
 
 .save-guest-option {
   margin-top: 8px;
+}
+
+.manual-input-section-first {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid #e2e8f0;
 }
 
 @media (max-width: 900px) {
