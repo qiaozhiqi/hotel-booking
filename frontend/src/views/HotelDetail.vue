@@ -305,31 +305,9 @@
             <div class="guest-section">
               <div class="guest-section-header">
                 <label class="form-label">入住人信息</label>
-                <button v-if="guests.length > 0 && !showGuestForm" class="btn-toggle-guest" @click="openAddGuestForm">
-                  + 新增入住人
+                <button v-if="!showGuestForm" class="btn-toggle-guest" @click="openAddGuestForm">
+                  + 新增常用入住人
                 </button>
-              </div>
-
-              <div v-if="guests.length > 0 && !showGuestForm" class="guest-list">
-                <div 
-                  v-for="guest in guests" 
-                  :key="guest.id" 
-                  class="guest-item"
-                  :class="{ 'selected': selectedGuest && selectedGuest.id === guest.id }"
-                  @click="selectGuest(guest)"
-                >
-                  <div class="guest-info">
-                    <span class="guest-name">{{ guest.name }}</span>
-                    <span class="guest-phone">{{ guest.phone }}</span>
-                    <span v-if="guest.id_type && guest.id_number" class="guest-id">
-                      {{ guest.id_type }}: {{ guest.id_number }}
-                    </span>
-                  </div>
-                  <div class="guest-actions">
-                    <span v-if="guest.is_default" class="default-badge">默认</span>
-                    <span v-if="selectedGuest && selectedGuest.id === guest.id" class="check-icon">✓</span>
-                  </div>
-                </div>
               </div>
 
               <div v-if="showGuestForm" class="guest-form-wrapper">
@@ -380,66 +358,55 @@
                 </div>
               </div>
 
-              <div v-if="guests.length === 0 && !showGuestForm" class="guest-empty">
-                <p class="guest-empty-text">暂无常用入住人</p>
-                <div class="guest-empty-actions">
-                  <button class="btn-add-guest" @click="openAddGuestForm">
-                    添加常用入住人
-                  </button>
-                </div>
-                <div class="manual-input-section-first">
-                  <div class="manual-input-header">
-                    <span class="manual-input-label">或手动填写入住人</span>
-                  </div>
-                  <div class="form-row">
-                    <div class="form-group">
-                      <label class="form-label">入住人姓名</label>
-                      <input type="text" v-model="bookingForm.guestName" class="form-input" placeholder="请输入姓名" />
+              <div v-if="guests.length > 0 && !showGuestForm" class="guest-list-wrapper">
+                <p class="guest-list-hint">点击选择常用入住人（可自动填充）：</p>
+                <div class="guest-list">
+                  <div 
+                    v-for="guest in guests" 
+                    :key="guest.id" 
+                    class="guest-item"
+                    :class="{ 'selected': selectedGuest && selectedGuest.id === guest.id }"
+                    @click="selectGuest(guest)"
+                  >
+                    <div class="guest-info">
+                      <span class="guest-name">{{ guest.name }}</span>
+                      <span class="guest-phone">{{ guest.phone }}</span>
+                      <span v-if="guest.id_type && guest.id_number" class="guest-id">
+                        {{ guest.id_type }}: {{ guest.id_number }}
+                      </span>
                     </div>
-                    <div class="form-group">
-                      <label class="form-label">联系电话</label>
-                      <input type="tel" v-model="bookingForm.guestPhone" class="form-input" placeholder="请输入手机号" />
+                    <div class="guest-actions">
+                      <span v-if="guest.is_default" class="default-badge">默认</span>
+                      <span v-if="selectedGuest && selectedGuest.id === guest.id" class="check-icon">✓</span>
                     </div>
-                  </div>
-                  <div class="save-guest-option">
-                    <label class="checkbox-label">
-                      <input type="checkbox" v-model="saveAsGuest" />
-                      <span>保存为常用入住人</span>
-                    </label>
-                  </div>
-                  <div class="save-guest-option" v-if="saveAsGuest">
-                    <label class="checkbox-label">
-                      <input type="checkbox" v-model="setAsDefault" />
-                      <span>设为默认入住人</span>
-                    </label>
                   </div>
                 </div>
               </div>
 
-              <div v-if="!selectedGuest && guests.length > 0 && !showGuestForm" class="manual-input-section">
-                <div class="manual-input-header">
-                  <span class="manual-input-label">手动填写入住人</span>
-                  <button v-if="bookingForm.guestName || bookingForm.guestPhone" class="btn-clear-manual" @click="clearSelectedGuest">
-                    清除
+              <div class="guest-input-section" v-if="!showGuestForm">
+                <div class="guest-input-header">
+                  <span class="guest-input-label">入住人信息</span>
+                  <button v-if="selectedGuest" class="btn-unselect-guest" @click="clearSelectedGuest">
+                    清除选择，手动填写
                   </button>
                 </div>
                 <div class="form-row">
                   <div class="form-group">
-                    <label class="form-label">入住人姓名</label>
+                    <label class="form-label">姓名 <span class="required">*</span></label>
                     <input type="text" v-model="bookingForm.guestName" class="form-input" placeholder="请输入姓名" />
                   </div>
                   <div class="form-group">
-                    <label class="form-label">联系电话</label>
+                    <label class="form-label">手机号 <span class="required">*</span></label>
                     <input type="tel" v-model="bookingForm.guestPhone" class="form-input" placeholder="请输入手机号" />
                   </div>
                 </div>
-                <div class="save-guest-option">
+                <div class="save-guest-option" v-if="!bookingForm.guestID">
                   <label class="checkbox-label">
                     <input type="checkbox" v-model="saveAsGuest" />
                     <span>保存为常用入住人</span>
                   </label>
                 </div>
-                <div class="save-guest-option" v-if="saveAsGuest">
+                <div class="save-guest-option" v-if="saveAsGuest && !bookingForm.guestID">
                   <label class="checkbox-label">
                     <input type="checkbox" v-model="setAsDefault" />
                     <span>设为默认入住人</span>
@@ -2334,7 +2301,39 @@ export default {
   color: #999;
 }
 
-.btn-clear-manual {
+.save-guest-option {
+  margin-top: 8px;
+}
+
+.guest-list-wrapper {
+  margin-bottom: 16px;
+}
+
+.guest-list-hint {
+  font-size: 13px;
+  color: #666;
+  margin-bottom: 8px;
+}
+
+.guest-input-section {
+  padding-top: 16px;
+  border-top: 1px solid #eee;
+}
+
+.guest-input-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.guest-input-label {
+  font-size: 14px;
+  font-weight: 600;
+  color: #333;
+}
+
+.btn-unselect-guest {
   padding: 4px 10px;
   background: transparent;
   border: 1px solid #ddd;
@@ -2345,18 +2344,8 @@ export default {
   transition: all 0.2s;
 }
 
-.btn-clear-manual:hover {
+.btn-unselect-guest:hover {
   border-color: #999;
-}
-
-.save-guest-option {
-  margin-top: 8px;
-}
-
-.manual-input-section-first {
-  margin-top: 16px;
-  padding-top: 16px;
-  border-top: 1px solid #e2e8f0;
 }
 
 @media (max-width: 900px) {
