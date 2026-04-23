@@ -51,4 +51,13 @@ export const orderApi = {
   cancel: (id) => api.post(`/orders/${id}/cancel`)
 }
 
+export const guestApi = {
+  getList: () => api.get('/guests'),
+  getDetail: (id) => api.get(`/guests/${id}`),
+  create: (data) => api.post('/guests', data),
+  update: (id, data) => api.put(`/guests/${id}`, data),
+  delete: (id) => api.delete(`/guests/${id}`),
+  setDefault: (id) => api.post(`/guests/${id}/default`)
+}
+
 export default api

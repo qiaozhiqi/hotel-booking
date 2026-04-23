@@ -302,14 +302,120 @@
               </div>
             </div>
 
-            <div class="form-row">
-              <div class="form-group">
-                <label class="form-label">入住人姓名</label>
-                <input type="text" v-model="bookingForm.guestName" class="form-input" placeholder="请输入姓名" />
+            <div class="guest-section">
+              <div class="guest-section-header">
+                <label class="form-label">入住人信息</label>
+                <button v-if="guests.length > 0 && !showGuestForm" class="btn-toggle-guest" @click="openAddGuestForm">
+                  + 新增入住人
+                </button>
               </div>
-              <div class="form-group">
-                <label class="form-label">联系电话</label>
-                <input type="tel" v-model="bookingForm.guestPhone" class="form-input" placeholder="请输入手机号" />
+
+              <div v-if="guests.length > 0 && !showGuestForm" class="guest-list">
+                <div 
+                  v-for="guest in guests" 
+                  :key="guest.id" 
+                  class="guest-item"
+                  :class="{ 'selected': selectedGuest && selectedGuest.id === guest.id }"
+                  @click="selectGuest(guest)"
+                >
+                  <div class="guest-info">
+                    <span class="guest-name">{{ guest.name }}</span>
+                    <span class="guest-phone">{{ guest.phone }}</span>
+                    <span v-if="guest.id_type && guest.id_number" class="guest-id">
+                      {{ guest.id_type }}: {{ guest.id_number }}
+                    </span>
+                  </div>
+                  <div class="guest-actions">
+                    <span v-if="guest.is_default" class="default-badge">默认</span>
+                    <span v-if="selectedGuest && selectedGuest.id === guest.id" class="check-icon">✓</span>
+                  </div>
+                </div>
+              </div>
+
+              <div v-if="showGuestForm" class="guest-form-wrapper">
+                <div class="guest-form-header">
+                  <span class="guest-form-title">添加常用入住人</span>
+                  <button class="btn-close-guest-form" @click="closeGuestForm">×</button>
+                </div>
+                <div class="form-row">
+                  <div class="form-group">
+                    <label class="form-label">姓名 <span class="required">*</span></label>
+                    <input type="text" v-model="guestForm.name" class="form-input" placeholder="请输入姓名" />
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label">手机号 <span class="required">*</span></label>
+                    <input type="tel" v-model="guestForm.phone" class="form-input" placeholder="请输入手机号" />
+                  </div>
+                </div>
+                <div class="form-row">
+                  <div class="form-group">
+                    <label class="form-label">证件类型</label>
+                    <select v-model="guestForm.idType" class="form-input">
+                      <option value="">请选择</option>
+                      <option value="身份证">身份证</option>
+                      <option value="护照">护照</option>
+                      <option value="港澳通行证">港澳通行证</option>
+                      <option value="台胞证">台胞证</option>
+                    </select>
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label">证件号码</label>
+                    <input type="text" v-model="guestForm.idNumber" class="form-input" placeholder="请输入证件号码" />
+                  </div>
+                </div>
+                <div class="form-row">
+                  <div class="form-group">
+                    <label class="checkbox-label">
+                      <input type="checkbox" v-model="guestForm.isDefault" />
+                      <span>设为默认入住人</span>
+                    </label>
+                  </div>
+                </div>
+                <div class="guest-form-actions">
+                  <button class="btn-cancel-guest" @click="closeGuestForm">取消</button>
+                  <button class="btn-save-guest" :disabled="savingGuest" @click="saveGuest">
+                    <span v-if="savingGuest">保存中...</span>
+                    <span v-else>保存</span>
+                  </button>
+                </div>
+              </div>
+
+              <div v-if="guests.length === 0 && !showGuestForm" class="guest-empty">
+                <p class="guest-empty-text">暂无常用入住人，您可以：</p>
+                <div class="guest-empty-actions">
+                  <button class="btn-add-guest" @click="openAddGuestForm">
+                    添加常用入住人
+                  </button>
+                  <span class="guest-or">或</span>
+                  <button class="btn-manual-input" @click="clearSelectedGuest">
+                    手动填写
+                  </button>
+                </div>
+              </div>
+
+              <div v-if="!selectedGuest && guests.length > 0 && !showGuestForm" class="manual-input-section">
+                <div class="manual-input-header">
+                  <span class="manual-input-label">手动填写入住人</span>
+                  <button v-if="bookingForm.guestName || bookingForm.guestPhone" class="btn-clear-manual" @click="clearSelectedGuest">
+                    清除
+                  </button>
+                </div>
+                <div class="form-row">
+                  <div class="form-group">
+                    <label class="form-label">入住人姓名</label>
+                    <input type="text" v-model="bookingForm.guestName" class="form-input" placeholder="请输入姓名" />
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label">联系电话</label>
+                    <input type="tel" v-model="bookingForm.guestPhone" class="form-input" placeholder="请输入手机号" />
+                  </div>
+                </div>
+                <div class="save-guest-option">
+                  <label class="checkbox-label">
+                    <input type="checkbox" v-model="guestForm.isDefault" />
+                    <span>保存为常用入住人</span>
+                  </label>
+                </div>
               </div>
             </div>
           </div>
@@ -353,7 +459,7 @@
 <script>
 import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { hotelApi, orderApi } from '../api'
+import { hotelApi, orderApi, guestApi } from '../api'
 
 export default {
   name: 'HotelDetail',
@@ -378,11 +484,24 @@ export default {
     const checkOutDate = ref(tomorrow)
     const currentMonth = ref(new Date())
 
+    const guests = ref([])
+    const selectedGuest = ref(null)
+    const showGuestForm = ref(false)
+    const guestForm = ref({
+      name: '',
+      phone: '',
+      idType: '',
+      idNumber: '',
+      isDefault: false
+    })
+    const savingGuest = ref(false)
+
     const bookingForm = ref({
       checkIn: today,
       checkOut: tomorrow,
       guestName: '',
-      guestPhone: ''
+      guestPhone: '',
+      guestID: null
     })
 
     const nights = computed(() => {
@@ -406,6 +525,84 @@ export default {
              nights.value > 0
     })
 
+    const loadGuests = async () => {
+      const user = localStorage.getItem('user')
+      if (!user) return
+      
+      try {
+        const res = await guestApi.getList()
+        if (res.code === 200) {
+          guests.value = res.data || []
+        }
+      } catch (error) {
+        console.error('加载常用入住人失败:', error)
+      }
+    }
+
+    const selectGuest = (guest) => {
+      selectedGuest.value = guest
+      bookingForm.value.guestName = guest.name
+      bookingForm.value.guestPhone = guest.phone
+      bookingForm.value.guestID = guest.id
+    }
+
+    const clearSelectedGuest = () => {
+      selectedGuest.value = null
+      bookingForm.value.guestName = ''
+      bookingForm.value.guestPhone = ''
+      bookingForm.value.guestID = null
+    }
+
+    const openAddGuestForm = () => {
+      guestForm.value = {
+        name: bookingForm.value.guestName || '',
+        phone: bookingForm.value.guestPhone || '',
+        idType: '',
+        idNumber: '',
+        isDefault: false
+      }
+      showGuestForm.value = true
+    }
+
+    const closeGuestForm = () => {
+      showGuestForm.value = false
+      guestForm.value = {
+        name: '',
+        phone: '',
+        idType: '',
+        idNumber: '',
+        isDefault: false
+      }
+    }
+
+    const saveGuest = async () => {
+      if (!guestForm.value.name || !guestForm.value.phone) {
+        alert('请填写姓名和手机号')
+        return
+      }
+
+      savingGuest.value = true
+      try {
+        const res = await guestApi.create(guestForm.value)
+        if (res.code === 200) {
+          await loadGuests()
+          const newGuest = {
+            id: res.data.guest_id,
+            ...guestForm.value
+          }
+          selectGuest(newGuest)
+          closeGuestForm()
+        } else {
+          alert(res.message || '保存失败')
+        }
+      } catch (error) {
+        console.error('保存入住人失败:', error)
+        alert('保存失败，请稍后重试')
+      } finally {
+        savingGuest.value = false
+      }
+    }
+
     const loadHotelDetail = async () => {
       loading.value = true
       try {
@@ -422,20 +619,33 @@ export default {
       }
     }
 
-    const openBookingModal = (room) => {
+    const openBookingModal = async (room) => {
       selectedRoom.value = room
       bookingForm.value = {
         checkIn: checkInDate.value,
         checkOut: checkOutDate.value,
         guestName: '',
-        guestPhone: ''
+        guestPhone: '',
+        guestID: null
       }
+      selectedGuest.value = null
+      showGuestForm.value = false
+      
+      await loadGuests()
+      
+      const defaultGuest = guests.value.find(g => g.is_default)
+      if (defaultGuest) {
+        selectGuest(defaultGuest)
+      }
+      
       showBookingModal.value = true
     }
 
     const closeBookingModal = () => {
       showBookingModal.value = false
       selectedRoom.value = null
+      selectedGuest.value = null
+      showGuestForm.value = false
     }
 
     const submitBooking = async () => {
@@ -451,14 +661,21 @@ export default {
 
       submitting.value = true
       try {
-        const res = await orderApi.create({
+        const orderData = {
           hotel_id: hotel.value.id,
           room_id: selectedRoom.value.id,
           check_in: bookingForm.value.checkIn,
-          check_out: bookingForm.value.checkOut,
-          guest_name: bookingForm.value.guestName,
-          guest_phone: bookingForm.value.guestPhone
-        })
+          check_out: bookingForm.value.checkOut
+        }
+        
+        if (bookingForm.value.guestID) {
+          orderData.guest_id = bookingForm.value.guestID
+        } else {
+          orderData.guest_name = bookingForm.value.guestName
+          orderData.guest_phone = bookingForm.value.guestPhone
+        }
+
+        const res = await orderApi.create(orderData)
 
         if (res.code === 200) {
           closeBookingModal()
@@ -682,7 +899,17 @@ export default {
       openBookingModal,
       closeBookingModal,
       submitBooking,
-      closeSuccessModal
+      closeSuccessModal,
+      guests,
+      selectedGuest,
+      showGuestForm,
+      guestForm,
+      savingGuest,
+      selectGuest,
+      clearSelectedGuest,
+      openAddGuestForm,
+      closeGuestForm,
+      saveGuest
     }
   }
 }
@@ -1766,6 +1993,312 @@ export default {
 
 .btn-primary:hover {
   background: #1557b0;
+}
+
+.guest-section {
+  margin-top: 20px;
+}
+
+.guest-section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.btn-toggle-guest {
+  padding: 4px 12px;
+  background: transparent;
+  border: 1px solid #1a73e8;
+  color: #1a73e8;
+  border-radius: 4px;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-toggle-guest:hover {
+  background: #1a73e8;
+  color: #fff;
+}
+
+.guest-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.guest-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.guest-item:hover {
+  border-color: #1a73e8;
+  background: rgba(26, 115, 232, 0.02);
+}
+
+.guest-item.selected {
+  border-color: #1a73e8;
+  background: rgba(26, 115, 232, 0.05);
+}
+
+.guest-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.guest-name {
+  font-size: 15px;
+  font-weight: 600;
+  color: #333;
+}
+
+.guest-phone {
+  font-size: 13px;
+  color: #666;
+}
+
+.guest-id {
+  font-size: 12px;
+  color: #999;
+}
+
+.guest-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.default-badge {
+  padding: 2px 8px;
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  color: #fff;
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.check-icon {
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #1a73e8;
+  color: #fff;
+  border-radius: 50%;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.guest-form-wrapper {
+  padding: 16px;
+  background: #f8fafc;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+}
+
+.guest-form-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.guest-form-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: #333;
+}
+
+.btn-close-guest-form {
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  font-size: 18px;
+  color: #999;
+  cursor: pointer;
+  border-radius: 50%;
+  transition: all 0.2s;
+}
+
+.btn-close-guest-form:hover {
+  background: #e2e8f0;
+  color: #666;
+}
+
+.required {
+  color: #e74c3c;
+}
+
+.checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: #666;
+  cursor: pointer;
+}
+
+.checkbox-label input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+}
+
+.guest-form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid #e2e8f0;
+}
+
+.btn-cancel-guest {
+  padding: 8px 20px;
+  background: transparent;
+  border: 1px solid #ddd;
+  color: #666;
+  border-radius: 6px;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-cancel-guest:hover {
+  border-color: #999;
+}
+
+.btn-save-guest {
+  padding: 8px 20px;
+  background: #1a73e8;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.btn-save-guest:hover:not(:disabled) {
+  background: #1557b0;
+}
+
+.btn-save-guest:disabled {
+  background: #ccc;
+  cursor: not-allowed;
+}
+
+.guest-empty {
+  text-align: center;
+  padding: 24px;
+  background: #f8fafc;
+  border-radius: 8px;
+  border: 1px dashed #e2e8f0;
+}
+
+.guest-empty-text {
+  font-size: 14px;
+  color: #666;
+  margin-bottom: 16px;
+}
+
+.guest-empty-actions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.btn-add-guest {
+  padding: 8px 20px;
+  background: #1a73e8;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.btn-add-guest:hover {
+  background: #1557b0;
+}
+
+.guest-or {
+  font-size: 13px;
+  color: #999;
+}
+
+.btn-manual-input {
+  padding: 8px 20px;
+  background: transparent;
+  border: 1px solid #1a73e8;
+  color: #1a73e8;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-manual-input:hover {
+  background: #1a73e8;
+  color: #fff;
+}
+
+.manual-input-section {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid #eee;
+}
+
+.manual-input-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.manual-input-label {
+  font-size: 13px;
+  color: #999;
+}
+
+.btn-clear-manual {
+  padding: 4px 10px;
+  background: transparent;
+  border: 1px solid #ddd;
+  color: #666;
+  border-radius: 4px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-clear-manual:hover {
+  border-color: #999;
+}
+
+.save-guest-option {
+  margin-top: 8px;
 }
 
 @media (max-width: 900px) {

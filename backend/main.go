@@ -226,7 +226,21 @@ func initDatabaseTables() error {
 				UNIQUE(supplier_id, supplier_hotel_id)
 			)
 		`
-		
+
+		createGuestsSQL := `
+			CREATE TABLE IF NOT EXISTS guests (
+				id INTEGER PRIMARY KEY AUTOINCREMENT,
+				user_id INTEGER NOT NULL,
+				name TEXT NOT NULL,
+				phone TEXT NOT NULL,
+				id_type TEXT,
+				id_number TEXT,
+				is_default INTEGER DEFAULT 0,
+				created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+				updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+			)
+		`
+
 		db.Exec(createUsersSQL)
 		db.Exec(createHotelsSQL)
 		db.Exec(createRoomsSQL)
@@ -237,6 +251,7 @@ func initDatabaseTables() error {
 		db.Exec(createPriceInventorySQL)
 		db.Exec(createRoomPriceSummarySQL)
 		db.Exec(createHotelPriceSummarySQL)
+		db.Exec(createGuestsSQL)
 	} else {
 		createSuppliersSQL := `
 			CREATE TABLE IF NOT EXISTS suppliers (

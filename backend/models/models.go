@@ -65,6 +65,18 @@ type User struct {
 	UpdatedAt time.Time `json:"updated_at"`
 }
 
+type Guest struct {
+	ID          int       `json:"id"`
+	UserID      int       `json:"user_id"`
+	Name        string    `json:"name" binding:"required"`
+	Phone       string    `json:"phone" binding:"required"`
+	IDType      string    `json:"id_type"`
+	IDNumber    string    `json:"id_number"`
+	IsDefault   bool      `json:"is_default"`
+	CreatedAt   time.Time `json:"created_at"`
+	UpdatedAt   time.Time `json:"updated_at"`
+}
+
 type Hotel struct {
 	ID          int       `json:"id"`
 	Name        string    `json:"name"`
@@ -132,8 +144,25 @@ type CreateOrderRequest struct {
 	RoomID     int    `json:"room_id" binding:"required"`
 	CheckIn    string `json:"check_in" binding:"required"`
 	CheckOut   string `json:"check_out" binding:"required"`
-	GuestName  string `json:"guest_name" binding:"required"`
-	GuestPhone string `json:"guest_phone" binding:"required"`
+	GuestName  string `json:"guest_name"`
+	GuestPhone string `json:"guest_phone"`
+	GuestID    int    `json:"guest_id"`
+}
+
+type CreateGuestRequest struct {
+	Name      string `json:"name" binding:"required"`
+	Phone     string `json:"phone" binding:"required"`
+	IDType    string `json:"id_type"`
+	IDNumber  string `json:"id_number"`
+	IsDefault bool   `json:"is_default"`
+}
+
+type UpdateGuestRequest struct {
+	Name      string `json:"name"`
+	Phone     string `json:"phone"`
+	IDType    string `json:"id_type"`
+	IDNumber  string `json:"id_number"`
+	IsDefault *bool  `json:"is_default"`
 }
 
 type Response struct {

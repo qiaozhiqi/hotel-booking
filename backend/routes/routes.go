@@ -45,6 +45,13 @@ func SetupRouter() *gin.Engine {
 		api.GET("/orders/:id", controllers.GetOrderDetail)
 		api.POST("/orders/:id/cancel", controllers.CancelOrder)
 
+		api.GET("/guests", controllers.GetGuestList)
+		api.GET("/guests/:id", controllers.GetGuestDetail)
+		api.POST("/guests", controllers.CreateGuest)
+		api.PUT("/guests/:id", controllers.UpdateGuest)
+		api.DELETE("/guests/:id", controllers.DeleteGuest)
+		api.POST("/guests/:id/default", controllers.SetDefaultGuest)
+
 		api.GET("/suppliers", controllers.GetSupplierList)
 		api.POST("/suppliers/:code/pull", controllers.PullSupplierData)
 		api.GET("/suppliers/:code/status", controllers.GetSyncStatus)
