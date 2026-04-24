@@ -328,7 +328,7 @@
                 <div class="form-row">
                   <div class="form-group">
                     <label class="form-label">证件类型</label>
-                    <select v-model="guestForm.idType" class="form-input">
+                    <select v-model="guestForm.id_type" class="form-input">
                       <option value="">请选择</option>
                       <option value="身份证">身份证</option>
                       <option value="护照">护照</option>
@@ -338,13 +338,13 @@
                   </div>
                   <div class="form-group">
                     <label class="form-label">证件号码</label>
-                    <input type="text" v-model="guestForm.idNumber" class="form-input" placeholder="请输入证件号码" />
+                    <input type="text" v-model="guestForm.id_number" class="form-input" placeholder="请输入证件号码" />
                   </div>
                 </div>
                 <div class="form-row">
                   <div class="form-group">
                     <label class="checkbox-label">
-                      <input type="checkbox" v-model="guestForm.isDefault" />
+                      <input type="checkbox" v-model="guestForm.is_default" />
                       <span>设为默认入住人</span>
                     </label>
                   </div>
@@ -486,9 +486,9 @@ export default {
     const guestForm = ref({
       name: '',
       phone: '',
-      idType: '',
-      idNumber: '',
-      isDefault: false
+      id_type: '',
+      id_number: '',
+      is_default: false
     })
     const savingGuest = ref(false)
     const saveAsGuest = ref(false)
@@ -524,9 +524,6 @@ export default {
     })
 
     const loadGuests = async () => {
-      const user = localStorage.getItem('user')
-      if (!user) return
-      
       try {
         const res = await guestApi.getList()
         if (res.code === 200) {
@@ -555,9 +552,9 @@ export default {
       guestForm.value = {
         name: bookingForm.value.guestName || '',
         phone: bookingForm.value.guestPhone || '',
-        idType: '',
-        idNumber: '',
-        isDefault: false
+        id_type: '',
+        id_number: '',
+        is_default: false
       }
       showGuestForm.value = true
     }
@@ -567,9 +564,9 @@ export default {
       guestForm.value = {
         name: '',
         phone: '',
-        idType: '',
-        idNumber: '',
-        isDefault: false
+        id_type: '',
+        id_number: '',
+        is_default: false
       }
     }
 
@@ -824,9 +821,12 @@ export default {
       
       const dateStr = day.date
       
-      if (!checkInDate.value || dateStr < checkInDate.value || 
-          (checkInDate.value && checkOutDate.value && dateStr <= checkOutDate.value)) {
+      if (!checkInDate.value || dateStr < checkInDate.value) {
         checkInDate.value = dateStr
+        const nextDay = new Date(dateStr)
+        nextDay.setDate(nextDay.getDate() + 1)
+        checkOutDate.value = formatDate(nextDay)
+      } else if (dateStr === checkInDate.value) {
         const nextDay = new Date(dateStr)
         nextDay.setDate(nextDay.getDate() + 1)
         checkOutDate.value = formatDate(nextDay)
