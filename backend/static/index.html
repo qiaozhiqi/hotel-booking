@@ -559,6 +559,50 @@
     }
     .booking-form { margin-bottom: 20px; }
     .form-row { display: flex; gap: 16px; margin-bottom: 16px; flex-wrap: wrap; }
+    .guest-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .guest-item {
+      padding: 12px 16px;
+      border: 2px solid #e5e7eb;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .guest-item:hover {
+      border-color: #93c5fd;
+      background: #eff6ff;
+    }
+    .guest-item.selected {
+      border-color: #1a73e8;
+      background: #dbeafe;
+    }
+    .guest-name {
+      font-size: 14px;
+      font-weight: 500;
+      color: #1f2937;
+    }
+    .guest-phone {
+      font-size: 12px;
+      color: #6b7280;
+      margin-top: 4px;
+    }
+    .guest-id {
+      font-size: 12px;
+      color: #9ca3af;
+      margin-top: 2px;
+    }
+    .default-badge {
+      display: inline-block;
+      padding: 2px 6px;
+      background: #1a73e8;
+      color: #fff;
+      font-size: 10px;
+      border-radius: 4px;
+      margin-left: 8px;
+    }
     .booking-price-summary { border: 1px solid #eee; border-radius: 8px; overflow: hidden; }
     .price-row {
       display: flex;
@@ -1522,6 +1566,8 @@
       total: 0,
       orderStatus: '',
       selectedRoom: null,
+      guests: [],
+      selectedGuest: null,
       filterOptions: {
         bed_types: [],
         amenities: [],
@@ -1972,22 +2018,25 @@
     function selectCalendarDate(dateStr) {
       if (!isDateSelectable(dateStr)) return;
 
-      if (!state.calendar.checkIn || (state.calendar.checkIn && state.calendar.checkOut)) {
+      if (!state.calendar.checkIn || dateStr < state.calendar.checkIn) {
         state.calendar.checkIn = dateStr;
-        state.calendar.checkOut = null;
-      } else {
-        if (dateStr < state.calendar.checkIn) {
-          state.calendar.checkIn = dateStr;
-        } else if (dateStr === state.calendar.checkIn) {
-          const tomorrow = new Date(dateStr);
-          tomorrow.setDate(tomorrow.getDate() + 1);
-          const tomorrowStr = tomorrow.toISOString().split('T')[0];
-          if (isDateSelectable(tomorrowStr)) {
-            state.calendar.checkOut = tomorrowStr;
-          }
+        const tomorrow = new Date(dateStr);
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        const tomorrowStr = tomorrow.toISOString().split('T')[0];
+        if (isDateSelectable(tomorrowStr)) {
+          state.calendar.checkOut = tomorrowStr;
         } else {
-          state.calendar.checkOut = dateStr;
+          state.calendar.checkOut = null;
         }
+      } else if (dateStr === state.calendar.checkIn) {
+        const tomorrow = new Date(dateStr);
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        const tomorrowStr = tomorrow.toISOString().split('T')[0];
+        if (isDateSelectable(tomorrowStr)) {
+          state.calendar.checkOut = tomorrowStr;
+        }
+      } else if (dateStr > state.calendar.checkIn) {
+        state.calendar.checkOut = dateStr;
       }
 
       renderCalendar();
@@ -2847,7 +2896,35 @@
       renderCalendar();
     }
 
-    function openBookingModal(room) {
+    async function loadGuests() {
+      try {
+        const res = await api.get('/guests');
+        if (res.code === 200) {
+          state.guests = res.data || [];
+        }
+      } catch (error) {
+        console.error('加载常用入住人失败:', error);
+      }
+    }
+
+    function selectGuest(guest) {
+      state.selectedGuest = guest;
+      const nameInput = document.getElementById('book-guest-name');
+      const phoneInput = document.getElementById('book-guest-phone');
+      if (nameInput) nameInput.value = guest.name;
+      if (phoneInput) phoneInput.value = guest.phone;
+      
+      const guestItems = document.querySelectorAll('.guest-item');
+      guestItems.forEach(item => {
+        item.classList.remove('selected');
+        const guestId = parseInt(item.dataset.guestId);
+        if (guestId === guest.id) {
+          item.classList.add('selected');
+        }
+      });
+    }
+
+    async function openBookingModal(room) {
       if (!state.user) {
         showToast('请先登录', 'error');
         router.navigate('/login');
@@ -2855,12 +2932,36 @@
       }
 
       state.selectedRoom = room;
+      state.selectedGuest = null;
       const hotel = state.currentHotel;
       const container = document.getElementById('modal-container');
       const today = getToday();
       const maxDate = getMaxDate();
       const checkInDate = state.calendar.checkIn || today;
       const checkOutDate = state.calendar.checkOut || (new Date(Date.now() + 86400000)).toISOString().split('T')[0];
+
+      await loadGuests();
+
+      const defaultGuest = state.guests.find(g => g.is_default) || state.guests[0];
+      const defaultName = defaultGuest ? defaultGuest.name : '';
+      const defaultPhone = defaultGuest ? defaultGuest.phone : '';
+
+      const guestsHTML = state.guests.length > 0 ? `
+        <div class="form-group">
+          <label class="form-label">常用入住人</label>
+          <div class="guest-list">
+            ${state.guests.map(g => `
+              <div class="guest-item ${defaultGuest && defaultGuest.id === g.id ? 'selected' : ''}" 
+                   data-guest-id="${g.id}"
+                   onclick='selectGuest(${JSON.stringify(g).replace(/'/g, "\\'")})'>
+                <div class="guest-name">${g.name} ${g.is_default ? '<span class="default-badge">默认</span>' : ''}</div>
+                <div class="guest-phone">${g.phone}</div>
+                <div class="guest-id">${g.id_type}：${g.id_number}</div>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      ` : '';
 
       container.innerHTML = `
         <div class="modal-overlay" onclick="closeBookingModal(event)">
@@ -2885,14 +2986,15 @@
                     <input type="date" class="form-input" id="book-check-out" value="${checkOutDate}" min="${checkInDate}" max="${maxDate}" onchange="updateBookingPrice()">
                   </div>
                 </div>
+                ${guestsHTML}
                 <div class="form-row">
                   <div class="form-group">
                     <label class="form-label">入住人姓名</label>
-                    <input type="text" class="form-input" id="book-guest-name" placeholder="请输入姓名">
+                    <input type="text" class="form-input" id="book-guest-name" placeholder="请输入姓名" value="${defaultName}">
                   </div>
                   <div class="form-group">
                     <label class="form-label">联系电话</label>
-                    <input type="tel" class="form-input" id="book-guest-phone" placeholder="请输入手机号">
+                    <input type="tel" class="form-input" id="book-guest-phone" placeholder="请输入手机号" value="${defaultPhone}">
                   </div>
                 </div>
               </div>
@@ -2914,6 +3016,10 @@
           </div>
         </div>
       `;
+
+      if (defaultGuest) {
+        state.selectedGuest = defaultGuest;
+      }
     }
 
     function updateBookingPrice() {
