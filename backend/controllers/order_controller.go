@@ -215,6 +215,20 @@ func GetOrderList(c *gin.Context) {
 		if err != nil {
 			continue
 		}
+		
+		var supplierCode string
+		err = db.QueryRow(`
+			SELECT s.code FROM hotels h 
+			LEFT JOIN suppliers s ON h.supplier_id = s.id 
+			WHERE h.id = ?`, order.HotelID).Scan(&supplierCode)
+		if err == nil && supplierCode != "" {
+			cancellationPolicy := models.GenerateCancellationPolicyBySupplier(supplierCode)
+			order.CancellationPolicy = &cancellationPolicy
+		} else {
+			cancellationPolicy := models.GenerateCancellationPolicy("default", order.ID)
+			order.CancellationPolicy = &cancellationPolicy
+		}
+		
 		orders = append(orders, order)
 	}
 
@@ -280,6 +294,19 @@ func GetOrderDetail(c *gin.Context) {
 			Message: "获取订单详情失败",
 		})
 		return
+	}
+
+	var supplierCode string
+	err = db.QueryRow(`
+		SELECT s.code FROM hotels h 
+		LEFT JOIN suppliers s ON h.supplier_id = s.id 
+		WHERE h.id = ?`, order.HotelID).Scan(&supplierCode)
+	if err == nil && supplierCode != "" {
+		cancellationPolicy := models.GenerateCancellationPolicyBySupplier(supplierCode)
+		order.CancellationPolicy = &cancellationPolicy
+	} else {
+		cancellationPolicy := models.GenerateCancellationPolicy("default", order.ID)
+		order.CancellationPolicy = &cancellationPolicy
 	}
 
 	c.JSON(http.StatusOK, models.Response{

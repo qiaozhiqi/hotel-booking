@@ -190,15 +190,17 @@ func generateChannelPrices(db *sql.DB, basePrice float64, baseAvailable int, bas
 	
 	if baseSupplier != nil {
 		controlledPrice := math.Round(basePrice * baseSupplier.PriceControl)
+		cancellationPolicy := models.GenerateCancellationPolicyBySupplier(baseSupplier.Code)
 		channelPrices = append(channelPrices, models.ChannelPrice{
-			SupplierID:     baseSupplier.ID,
-			SupplierName:   baseSupplier.Name,
-			SupplierCode:   baseSupplier.Code,
-			Price:          controlledPrice,
-			OriginalPrice:  basePrice,
-			AvailableCount: baseAvailable,
-			Priority:       baseSupplier.Priority,
-			IsBestPrice:    false,
+			SupplierID:         baseSupplier.ID,
+			SupplierName:       baseSupplier.Name,
+			SupplierCode:       baseSupplier.Code,
+			Price:              controlledPrice,
+			OriginalPrice:      basePrice,
+			AvailableCount:     baseAvailable,
+			Priority:           baseSupplier.Priority,
+			IsBestPrice:        false,
+			CancellationPolicy: &cancellationPolicy,
 		})
 	}
 	
@@ -214,7 +216,7 @@ func generateChannelPrices(db *sql.DB, basePrice float64, baseAvailable int, bas
 		{103, "模拟供应商C", "sim_c", 7, 0.98},
 	}
 	
-	for _, sim := range simulateSuppliers {
+	for i, sim := range simulateSuppliers {
 		if baseSupplier != nil && sim.ID == baseSupplier.ID {
 			continue
 		}
@@ -227,15 +229,17 @@ func generateChannelPrices(db *sql.DB, basePrice float64, baseAvailable int, bas
 			available = 0
 		}
 		
+		cancellationPolicy := models.GenerateCancellationPolicy(sim.Code, i)
 		channelPrices = append(channelPrices, models.ChannelPrice{
-			SupplierID:     sim.ID,
-			SupplierName:   sim.Name,
-			SupplierCode:   sim.Code,
-			Price:          controlledPrice,
-			OriginalPrice:  basePrice,
-			AvailableCount: available,
-			Priority:       sim.Priority,
-			IsBestPrice:    false,
+			SupplierID:         sim.ID,
+			SupplierName:       sim.Name,
+			SupplierCode:       sim.Code,
+			Price:              controlledPrice,
+			OriginalPrice:      basePrice,
+			AvailableCount:     available,
+			Priority:           sim.Priority,
+			IsBestPrice:        false,
+			CancellationPolicy: &cancellationPolicy,
 		})
 	}
 	

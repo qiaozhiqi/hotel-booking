@@ -217,6 +217,16 @@
                           原价 ¥{{ cp.original_price }}
                         </span>
                       </div>
+                      <div v-if="cp.cancellation_policy" class="cancellation-policy">
+                        <span 
+                          class="policy-type-badge" 
+                          :class="getPolicyTypeClass(cp.cancellation_policy.type)"
+                        >
+                          <span class="policy-icon">{{ getPolicyIcon(cp.cancellation_policy.type) }}</span>
+                          {{ cp.cancellation_policy.type_name }}
+                        </span>
+                        <span class="policy-desc">{{ cp.cancellation_policy.description }}</span>
+                      </div>
                     </div>
                     <div class="channel-price-right">
                       <div class="channel-price-display">
@@ -883,6 +893,24 @@ export default {
       return name.slice(0, 4)
     }
 
+    const getPolicyTypeClass = (type) => {
+      const classes = {
+        'free': 'policy-free',
+        'non_free': 'policy-non-free',
+        'non_cancellable': 'policy-non-cancellable'
+      }
+      return classes[type] || ''
+    }
+
+    const getPolicyIcon = (type) => {
+      const icons = {
+        'free': '✅',
+        'non_free': '⚠️',
+        'non_cancellable': '🚫'
+      }
+      return icons[type] || 'ℹ️'
+    }
+
     onMounted(() => {
       loadHotelDetail()
     })
@@ -909,6 +937,8 @@ export default {
       calendarNights,
       canShowPrevMonth,
       getSupplierShortName,
+      getPolicyTypeClass,
+      getPolicyIcon,
       getRoomPrice,
       prevMonth,
       nextMonth,
@@ -1634,6 +1664,51 @@ export default {
   font-size: 12px;
   color: #999;
   text-decoration: line-through;
+}
+
+.cancellation-policy {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px dashed #e2e8f0;
+}
+
+.policy-type-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 10px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 600;
+  width: fit-content;
+}
+
+.policy-type-badge.policy-free {
+  background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%);
+  color: #065f46;
+}
+
+.policy-type-badge.policy-non-free {
+  background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+  color: #92400e;
+}
+
+.policy-type-badge.policy-non-cancellable {
+  background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%);
+  color: #991b1b;
+}
+
+.policy-icon {
+  font-size: 12px;
+}
+
+.policy-desc {
+  font-size: 11px;
+  color: #666;
+  line-height: 1.5;
 }
 
 .channel-price-right {

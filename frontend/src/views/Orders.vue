@@ -56,6 +56,16 @@
                 <span class="guest-item">入住人：{{ order.guest_name }}</span>
                 <span class="guest-item">电话：{{ order.guest_phone }}</span>
               </div>
+              <div v-if="order.cancellation_policy" class="order-cancellation-policy">
+                <span 
+                  class="policy-type-badge" 
+                  :class="getPolicyTypeClass(order.cancellation_policy.type)"
+                >
+                  <span class="policy-icon">{{ getPolicyIcon(order.cancellation_policy.type) }}</span>
+                  {{ order.cancellation_policy.type_name }}
+                </span>
+                <span class="policy-desc">{{ order.cancellation_policy.description }}</span>
+              </div>
             </div>
             <div class="price-actions">
               <div class="price-info">
@@ -179,6 +189,24 @@ export default {
       return `${year}-${month}-${day} ${hour}:${minute}`
     }
 
+    const getPolicyTypeClass = (type) => {
+      const classes = {
+        'free': 'policy-free',
+        'non_free': 'policy-non-free',
+        'non_cancellable': 'policy-non-cancellable'
+      }
+      return classes[type] || ''
+    }
+
+    const getPolicyIcon = (type) => {
+      const icons = {
+        'free': '✅',
+        'non_free': '⚠️',
+        'non_cancellable': '🚫'
+      }
+      return icons[type] || 'ℹ️'
+    }
+
     const loadOrders = async () => {
       loading.value = true
       try {
@@ -262,6 +290,8 @@ export default {
       getStatusText,
       getStatusClass,
       formatDate,
+      getPolicyTypeClass,
+      getPolicyIcon,
       selectStatus,
       changePage,
       cancelOrder,
@@ -468,6 +498,51 @@ export default {
 .guest-item {
   font-size: 13px;
   color: #666;
+}
+
+.order-cancellation-policy {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px dashed #e0e0e0;
+}
+
+.order-cancellation-policy .policy-type-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 10px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 600;
+  width: fit-content;
+}
+
+.order-cancellation-policy .policy-type-badge.policy-free {
+  background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%);
+  color: #065f46;
+}
+
+.order-cancellation-policy .policy-type-badge.policy-non-free {
+  background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+  color: #92400e;
+}
+
+.order-cancellation-policy .policy-type-badge.policy-non-cancellable {
+  background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%);
+  color: #991b1b;
+}
+
+.order-cancellation-policy .policy-icon {
+  font-size: 12px;
+}
+
+.order-cancellation-policy .policy-desc {
+  font-size: 12px;
+  color: #666;
+  line-height: 1.5;
 }
 
 .price-actions {
