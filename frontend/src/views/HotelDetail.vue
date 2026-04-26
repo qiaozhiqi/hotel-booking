@@ -300,6 +300,17 @@
             <p class="summary-room">{{ selectedRoom.name }}</p>
           </div>
 
+          <div v-if="selectedChannel && selectedChannel.cancellation_policy" class="booking-cancellation-policy">
+            <div class="policy-header">
+              <span class="policy-label">取消政策：</span>
+              <span class="policy-type-badge" :class="getPolicyTypeClass(selectedChannel.cancellation_policy.type)">
+                <span class="policy-icon">{{ getPolicyIcon(selectedChannel.cancellation_policy.type) }}</span>
+                {{ selectedChannel.cancellation_policy.type_name }}
+              </span>
+            </div>
+            <p class="policy-description">{{ selectedChannel.cancellation_policy.description }}</p>
+          </div>
+
           <div class="booking-form">
             <div class="form-row">
               <div class="form-group">
@@ -483,6 +494,7 @@ export default {
 
     const showBookingModal = ref(false)
     const selectedRoom = ref(null)
+    const selectedChannel = ref(null)
     const showSuccessModal = ref(false)
     const submitting = ref(false)
 
@@ -626,6 +638,20 @@ export default {
 
     const openBookingModal = async (room) => {
       selectedRoom.value = room
+      
+      if (room.channel_prices && room.channel_prices.length > 0) {
+        let bestChannel = room.channel_prices[0]
+        for (const cp of room.channel_prices) {
+          if (cp.is_best_price && cp.available_count > 0) {
+            bestChannel = cp
+            break
+          }
+        }
+        selectedChannel.value = bestChannel
+      } else {
+        selectedChannel.value = null
+      }
+      
       bookingForm.value = {
         checkIn: checkInDate.value,
         checkOut: checkOutDate.value,
@@ -651,6 +677,7 @@ export default {
     const closeBookingModal = () => {
       showBookingModal.value = false
       selectedRoom.value = null
+      selectedChannel.value = null
       selectedGuest.value = null
       showGuestForm.value = false
     }
@@ -926,6 +953,7 @@ export default {
       currentMonth,
       showBookingModal,
       selectedRoom,
+      selectedChannel,
       showSuccessModal,
       submitting,
       bookingForm,
@@ -1926,6 +1954,64 @@ export default {
 .summary-room {
   font-size: 14px;
   color: #666;
+}
+
+.booking-cancellation-policy {
+  padding: 12px 16px;
+  background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%);
+  border-radius: 8px;
+  margin-bottom: 20px;
+  border: 1px solid #fcd34d;
+}
+
+.booking-cancellation-policy .policy-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+  flex-wrap: wrap;
+}
+
+.booking-cancellation-policy .policy-label {
+  font-size: 14px;
+  font-weight: 600;
+  color: #92400e;
+}
+
+.booking-cancellation-policy .policy-type-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 10px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.booking-cancellation-policy .policy-type-badge.policy-free {
+  background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%);
+  color: #065f46;
+}
+
+.booking-cancellation-policy .policy-type-badge.policy-non-free {
+  background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+  color: #92400e;
+}
+
+.booking-cancellation-policy .policy-type-badge.policy-non-cancellable {
+  background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%);
+  color: #991b1b;
+}
+
+.booking-cancellation-policy .policy-icon {
+  font-size: 12px;
+}
+
+.booking-cancellation-policy .policy-description {
+  font-size: 13px;
+  color: #78350f;
+  line-height: 1.5;
+  margin: 0;
 }
 
 .booking-form {

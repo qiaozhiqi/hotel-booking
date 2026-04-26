@@ -128,7 +128,7 @@ type Order struct {
 	RoomName           string              `json:"room_name"`
 	CreatedAt          time.Time           `json:"created_at"`
 	UpdatedAt          time.Time           `json:"updated_at"`
-	CancellationPolicy *CancellationPolicy `json:"cancellation_policy,omitempty"`
+	CancellationPolicy *CancellationPolicy `json:"cancellation_policy"`
 }
 
 type LoginRequest struct {
