@@ -932,6 +932,69 @@
     .channel-stock.available { color: #16a34a; }
     .channel-stock.unavailable { color: #dc2626; }
 
+    .cancellation-policy {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      margin-top: 8px;
+    }
+    .policy-type-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 4px 10px;
+      border-radius: 4px;
+      font-size: 12px;
+      font-weight: 600;
+      width: fit-content;
+    }
+    .policy-type-badge.policy-free {
+      background: linear-gradient(135deg, #dcfce7 0%, #bbf7d0 100%);
+      color: #16a34a;
+      border: 1px solid #86efac;
+    }
+    .policy-type-badge.policy-non-free {
+      background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+      color: #d97706;
+      border: 1px solid #fcd34d;
+    }
+    .policy-type-badge.policy-non-cancellable {
+      background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%);
+      color: #dc2626;
+      border: 1px solid #fca5a5;
+    }
+    .policy-icon { font-size: 12px; }
+    .policy-desc {
+      font-size: 11px;
+      color: #64748b;
+      line-height: 1.5;
+    }
+
+    .booking-cancellation-policy {
+      background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%);
+      border: 1px solid #fcd34d;
+      border-radius: 8px;
+      padding: 16px;
+      margin-bottom: 16px;
+    }
+    .booking-cancellation-policy .policy-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+    .booking-cancellation-policy .policy-label {
+      font-size: 13px;
+      font-weight: 600;
+      color: #92400e;
+    }
+    .booking-cancellation-policy .policy-description {
+      font-size: 13px;
+      color: #78350f;
+      line-height: 1.6;
+      margin: 0;
+    }
+
     .best-price-tag {
       display: inline-flex;
       align-items: center;
@@ -1676,6 +1739,51 @@
         '石基畅联': '石基'
       };
       return shortNames[name] || (name.length > 4 ? name.substring(0, 4) : name);
+    }
+
+    function getPolicyTypeName(type) {
+      const typeNames = {
+        'free': '免费取消',
+        'non_free': '不可免费取消',
+        'non_cancellable': '不可取消'
+      };
+      return typeNames[type] || '未知';
+    }
+
+    function getPolicyIcon(type) {
+      const icons = {
+        'free': '✅',
+        'non_free': '⚠️',
+        'non_cancellable': '🚫'
+      };
+      return icons[type] || 'ℹ️';
+    }
+
+    function getPolicyTypeClass(type) {
+      const classes = {
+        'free': 'policy-free',
+        'non_free': 'policy-non-free',
+        'non_cancellable': 'policy-non-cancellable'
+      };
+      return classes[type] || '';
+    }
+
+    function renderCancellationPolicy(policy) {
+      if (!policy) return '';
+      
+      const typeClass = getPolicyTypeClass(policy.type);
+      const icon = getPolicyIcon(policy.type);
+      const typeName = policy.type_name || getPolicyTypeName(policy.type);
+      
+      return `
+        <div class="cancellation-policy">
+          <span class="policy-type-badge ${typeClass}">
+            <span class="policy-icon">${icon}</span>
+            ${typeName}
+          </span>
+          <span class="policy-desc">${policy.description || ''}</span>
+        </div>
+      `;
     }
 
     const pages = {
@@ -2719,6 +2827,15 @@
                         ${isOutOfStock ? '无房' : `剩余 ${cp.available_count} 间`}
                       </span>
                     </div>
+                    ${cp.cancellation_policy ? `
+                    <div class="cancellation-policy">
+                      <span class="policy-type-badge ${getPolicyTypeClass(cp.cancellation_policy.type)}">
+                        <span class="policy-icon">${getPolicyIcon(cp.cancellation_policy.type)}</span>
+                        ${cp.cancellation_policy.type_name || getPolicyTypeName(cp.cancellation_policy.type)}
+                      </span>
+                      <span class="policy-desc">${cp.cancellation_policy.description || ''}</span>
+                    </div>
+                    ` : ''}
                   </div>
                   <div class="channel-price">
                     <div class="channel-price-main">
@@ -2946,6 +3063,21 @@
       const defaultName = defaultGuest ? defaultGuest.name : '';
       const defaultPhone = defaultGuest ? defaultGuest.phone : '';
 
+      const bestChannel = room.channel_prices?.find(cp => cp.is_best_price);
+      const cancellationPolicy = bestChannel?.cancellation_policy;
+      const cancellationPolicyHTML = cancellationPolicy ? `
+        <div class="booking-cancellation-policy">
+          <div class="policy-header">
+            <span class="policy-label">取消政策：</span>
+            <span class="policy-type-badge ${getPolicyTypeClass(cancellationPolicy.type)}">
+              <span class="policy-icon">${getPolicyIcon(cancellationPolicy.type)}</span>
+              ${cancellationPolicy.type_name || getPolicyTypeName(cancellationPolicy.type)}
+            </span>
+          </div>
+          <p class="policy-description">${cancellationPolicy.description || ''}</p>
+        </div>
+      ` : '';
+
       const guestsHTML = state.guests.length > 0 ? `
         <div class="form-group">
           <label class="form-label">常用入住人</label>
@@ -2998,6 +3130,7 @@
                   </div>
                 </div>
               </div>
+              ${cancellationPolicyHTML}
               <div class="booking-price-summary" id="booking-price-summary">
                 <div class="price-row">
                   <span class="price-label">房费：¥${room.price} × 1 晚</span>
@@ -3191,6 +3324,15 @@
                     <span class="guest-item">入住人：${order.guest_name}</span>
                     <span class="guest-item">电话：${order.guest_phone}</span>
                   </div>
+                  ${order.cancellation_policy ? `
+                  <div class="cancellation-policy">
+                    <span class="policy-type-badge ${getPolicyTypeClass(order.cancellation_policy.type)}">
+                      <span class="policy-icon">${getPolicyIcon(order.cancellation_policy.type)}</span>
+                      ${order.cancellation_policy.type_name || getPolicyTypeName(order.cancellation_policy.type)}
+                    </span>
+                    <span class="policy-desc">${order.cancellation_policy.description || ''}</span>
+                  </div>
+                  ` : ''}
                 </div>
                 <div class="price-actions">
                   <div class="price-info">
