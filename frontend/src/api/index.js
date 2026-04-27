@@ -60,4 +60,18 @@ export const guestApi = {
   setDefault: (id) => api.post(`/guests/${id}/default`)
 }
 
+export const favoriteApi = {
+  create: (data) => api.post('/favorites', data),
+  delete: (hotelId) => api.delete(`/favorites/${hotelId}`),
+  getList: (params) => api.get('/favorites', { params }),
+  checkStatus: (hotelId) => api.get(`/favorites/check/${hotelId}`)
+}
+
+export const invoiceApi = {
+  create: (data) => api.post('/invoices', data),
+  getList: (params) => api.get('/invoices', { params }),
+  getDetail: (id) => api.get(`/invoices/${id}`),
+  getAvailableOrders: () => api.get('/invoices/orders/available')
+}
+
 export default api

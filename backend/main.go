@@ -241,6 +241,46 @@ func initDatabaseTables() error {
 			)
 		`
 
+		createFavoritesSQL := `
+			CREATE TABLE IF NOT EXISTS favorites (
+				id INTEGER PRIMARY KEY AUTOINCREMENT,
+				user_id INTEGER NOT NULL,
+				hotel_id INTEGER NOT NULL,
+				hotel_name TEXT NOT NULL,
+				city TEXT,
+				address TEXT,
+				rating REAL DEFAULT 0.0,
+				image_url TEXT,
+				price_range TEXT,
+				created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+				UNIQUE(user_id, hotel_id)
+			)
+		`
+
+		createInvoicesSQL := `
+			CREATE TABLE IF NOT EXISTS invoices (
+				id INTEGER PRIMARY KEY AUTOINCREMENT,
+				user_id INTEGER NOT NULL,
+				order_id INTEGER NOT NULL,
+				order_no TEXT NOT NULL,
+				invoice_type TEXT NOT NULL,
+				invoice_title TEXT NOT NULL,
+				tax_number TEXT,
+				bank_name TEXT,
+				bank_account TEXT,
+				address TEXT,
+				phone TEXT,
+				email TEXT NOT NULL,
+				amount REAL NOT NULL,
+				status TEXT DEFAULT 'pending',
+				invoice_no TEXT,
+				invoice_url TEXT,
+				created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+				updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+				UNIQUE(order_id)
+			)
+		`
+
 		db.Exec(createUsersSQL)
 		db.Exec(createHotelsSQL)
 		db.Exec(createRoomsSQL)
@@ -252,6 +292,8 @@ func initDatabaseTables() error {
 		db.Exec(createRoomPriceSummarySQL)
 		db.Exec(createHotelPriceSummarySQL)
 		db.Exec(createGuestsSQL)
+		db.Exec(createFavoritesSQL)
+		db.Exec(createInvoicesSQL)
 	} else {
 		createSuppliersSQL := `
 			CREATE TABLE IF NOT EXISTS suppliers (

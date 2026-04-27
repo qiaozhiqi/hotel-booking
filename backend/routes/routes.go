@@ -84,6 +84,16 @@ func SetupRouter() *gin.Engine {
 			mock.GET("/huazhu/hotels", controllers.MockHuazhuGetHotels)
 			mock.GET("/huazhu/hotels/:id", controllers.MockHuazhuGetHotelDetail)
 		}
+
+		api.POST("/favorites", controllers.CreateFavorite)
+		api.DELETE("/favorites/:hotel_id", controllers.DeleteFavorite)
+		api.GET("/favorites", controllers.GetFavoriteList)
+		api.GET("/favorites/check/:hotel_id", controllers.CheckFavoriteStatus)
+
+		api.POST("/invoices", controllers.CreateInvoice)
+		api.GET("/invoices", controllers.GetInvoiceList)
+		api.GET("/invoices/:id", controllers.GetInvoiceDetail)
+		api.GET("/invoices/orders/available", controllers.GetInvoiceableOrders)
 	}
 
 	return r

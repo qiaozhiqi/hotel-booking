@@ -13,6 +13,14 @@
         <div class="hotel-info-large">
           <h1 class="hotel-name-large">
             {{ hotel.name }}
+            <button 
+              class="favorite-btn" 
+              :class="{ 'favorited': isFavorited }"
+              @click="toggleFavorite"
+            >
+              <span class="favorite-icon">{{ isFavorited ? '❤️' : '🤍' }}</span>
+              <span class="favorite-text">{{ isFavorited ? '已收藏' : '收藏' }}</span>
+            </button>
             <span v-if="hotel.supplier" class="supplier-badge-large">
               <span class="supplier-icon-large">🏢</span>
               {{ getSupplierShortName(hotel.supplier.name) }}
@@ -476,7 +484,7 @@
 <script>
 import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { hotelApi, orderApi, guestApi } from '../api'
+import { hotelApi, orderApi, guestApi, favoriteApi } from '../api'
 
 export default {
   name: 'HotelDetail',
@@ -491,6 +499,7 @@ export default {
     const loading = ref(true)
     const hotel = ref(null)
     const rooms = ref([])
+    const isFavorited = ref(false)
 
     const showBookingModal = ref(false)
     const selectedRoom = ref(null)
@@ -628,11 +637,54 @@ export default {
         if (res.code === 200) {
           hotel.value = res.data.hotel
           rooms.value = res.data.rooms || []
+          checkFavoriteStatus()
         }
       } catch (error) {
         console.error('加载酒店详情失败:', error)
       } finally {
         loading.value = false
+      }
+    }
+
+    const checkFavoriteStatus = async () => {
+      try {
+        const user = localStorage.getItem('user')
+        if (!user || !hotel.value) return
+        
+        const res = await favoriteApi.checkStatus(hotel.value.id)
+        if (res.code === 200) {
+          isFavorited.value = res.data.is_favorite
+        }
+      } catch (error) {
+        console.error('检查收藏状态失败:', error)
+      }
+    }
+
+    const toggleFavorite = async () => {
+      try {
+        const user = localStorage.getItem('user')
+        if (!user) {
+          alert('请先登录')
+          router.push('/login')
+          return
+        }
+
+        if (isFavorited.value) {
+          const res = await favoriteApi.delete(hotel.value.id)
+          if (res.code === 200) {
+            isFavorited.value = false
+          }
+        } else {
+          const res = await favoriteApi.create({
+            hotel_id: hotel.value.id
+          })
+          if (res.code === 200) {
+            isFavorited.value = true
+          }
+        }
+      } catch (error) {
+        console.error('收藏操作失败:', error)
+        alert('操作失败，请稍后重试')
       }
     }
 
@@ -948,6 +1000,7 @@ export default {
       loading,
       hotel,
       rooms,
+      isFavorited,
       checkInDate,
       checkOutDate,
       currentMonth,
@@ -986,7 +1039,8 @@ export default {
       clearSelectedGuest,
       openAddGuestForm,
       closeGuestForm,
-      saveGuest
+      saveGuest,
+      toggleFavorite
     }
   }
 }
@@ -1056,6 +1110,43 @@ export default {
   align-items: center;
   gap: 12px;
   flex-wrap: wrap;
+}
+
+.favorite-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  background: #fff;
+  border: 1px solid #e0e0e0;
+  border-radius: 20px;
+  font-size: 14px;
+  color: #666;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.favorite-btn:hover {
+  border-color: #e74c3c;
+  color: #e74c3c;
+}
+
+.favorite-btn.favorited {
+  background: #fef2f2;
+  border-color: #fecaca;
+  color: #e74c3c;
+}
+
+.favorite-btn.favorited:hover {
+  background: #fee2e2;
+}
+
+.favorite-icon {
+  font-size: 16px;
+}
+
+.favorite-text {
+  font-weight: 500;
 }
 
 .supplier-badge-large {
