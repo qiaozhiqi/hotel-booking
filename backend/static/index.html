@@ -337,6 +337,27 @@
     }
     .btn-back:hover { background: #1557b0; }
 
+    .btn-favorite {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 10px 20px;
+      background: #fff;
+      border: 1px solid #e0e0e0;
+      border-radius: 8px;
+      font-size: 14px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .btn-favorite:hover { border-color: #e74c3c; }
+    .btn-favorite.favorited {
+      background: #fef2f2;
+      border-color: #fecaca;
+      color: #dc2626;
+    }
+    .btn-favorite.favorited:hover { background: #fee2e2; }
+    .favorite-icon { font-size: 18px; }
+
     .orders-header { margin-bottom: 24px; padding-top: 30px; }
     .page-title { font-size: 24px; font-weight: 600; color: #333; margin-bottom: 20px; }
     .status-tabs { display: flex; gap: 8px; flex-wrap: wrap; }
@@ -1558,9 +1579,6 @@
         </div>
         <nav class="nav">
           <a class="nav-link active" onclick="router.navigate('/')" id="nav-home">首页</a>
-          <a class="nav-link" onclick="router.navigate('/orders')" id="nav-orders">我的订单</a>
-          <a class="nav-link" onclick="router.navigate('/favorites')" id="nav-favorites">我的收藏</a>
-          <a class="nav-link" onclick="router.navigate('/invoices')" id="nav-invoices">发票管理</a>
           <a class="nav-link" onclick="router.navigate('/profile')" id="nav-profile">个人中心</a>
         </nav>
         <div class="user-area" id="user-area">
@@ -2995,9 +3013,15 @@
             </div>
             ${renderSupplierInfo(hotel.supplier)}
             <p class="hotel-desc-large">${hotel.description || '暂无描述'}</p>
-            <div class="price-range-large">
-              <span class="price-label">价格范围：</span>
-              <span class="price-value-large">${hotel.price_range}</span>
+            <div class="price-range-large" style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px;">
+              <div>
+                <span class="price-label">价格范围：</span>
+                <span class="price-value-large">${hotel.price_range}</span>
+              </div>
+              <button class="btn-favorite" id="hotel-favorite-btn" onclick="handleHotelFavorite(${hotel.id})">
+                <span class="favorite-icon" id="favorite-icon">🤍</span>
+                <span id="favorite-text">收藏</span>
+              </button>
             </div>
           </div>
         </div>
@@ -3090,6 +3114,46 @@
       `;
 
       renderCalendar();
+      
+      if (state.user) {
+        initFavoriteButton(hotel.id);
+      }
+    }
+
+    async function initFavoriteButton(hotelId) {
+      const isFavorite = await checkFavoriteStatus(hotelId);
+      updateFavoriteButtonUI(isFavorite);
+    }
+
+    function updateFavoriteButtonUI(isFavorite) {
+      const btn = document.getElementById('hotel-favorite-btn');
+      const icon = document.getElementById('favorite-icon');
+      const text = document.getElementById('favorite-text');
+      
+      if (btn && icon && text) {
+        if (isFavorite) {
+          btn.classList.add('favorited');
+          icon.textContent = '❤️';
+          text.textContent = '已收藏';
+        } else {
+          btn.classList.remove('favorited');
+          icon.textContent = '🤍';
+          text.textContent = '收藏';
+        }
+      }
+    }
+
+    async function handleHotelFavorite(hotelId) {
+      if (!state.user) {
+        showToast('请先登录', 'error');
+        router.navigate('/login');
+        return;
+      }
+      
+      const result = await toggleFavorite(hotelId);
+      if (result !== null) {
+        updateFavoriteButtonUI(result);
+      }
     }
 
     async function loadGuests() {

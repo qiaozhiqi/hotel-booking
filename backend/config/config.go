@@ -29,7 +29,7 @@ func GetConfig() *Config {
 		DBUser:          "root",
 		DBPassword:      "root",
 		DBName:          "hotel_booking",
-		ServerPort:      8081,
+		ServerPort:      8083,
 		RedisHost:       "localhost",
 		RedisPort:       6379,
 		RedisPassword:   "",
