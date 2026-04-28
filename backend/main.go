@@ -270,14 +270,13 @@ func initDatabaseTables() error {
 				bank_account TEXT,
 				address TEXT,
 				phone TEXT,
-				email TEXT NOT NULL,
-				amount REAL NOT NULL,
+				email TEXT,
+				amount REAL NOT NULL DEFAULT 0.0,
 				status TEXT DEFAULT 'pending',
 				invoice_no TEXT,
-				invoice_url TEXT,
 				created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
 				updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-				UNIQUE(order_id)
+				UNIQUE(user_id, order_id)
 			)
 		`
 

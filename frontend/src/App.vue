@@ -9,15 +9,14 @@
         <nav class="nav">
           <router-link to="/" class="nav-link" :class="{ active: $route.path === '/' }">首页</router-link>
           <router-link to="/orders" class="nav-link" :class="{ active: $route.path === '/orders' }">我的订单</router-link>
-          <router-link to="/favorites" class="nav-link" :class="{ active: $route.path === '/favorites' }">收藏酒店</router-link>
-          <router-link to="/invoices" class="nav-link" :class="{ active: $route.path === '/invoices' }">开发票</router-link>
+          <router-link to="/favorites" class="nav-link" :class="{ active: $route.path === '/favorites' }">我的收藏</router-link>
+          <router-link to="/invoices" class="nav-link" :class="{ active: $route.path === '/invoices' }">发票管理</router-link>
+          <router-link to="/profile" class="nav-link" :class="{ active: $route.path === '/profile' }">个人中心</router-link>
         </nav>
         <div class="user-area">
           <template v-if="user">
-            <router-link to="/profile" class="user-profile-link">
-              <span class="user-name">{{ user.username }}</span>
-              <span class="user-avatar">👤</span>
-            </router-link>
+            <span class="user-name">{{ user.username }}</span>
+            <button class="btn-logout" @click="logout">退出</button>
           </template>
           <template v-else>
             <router-link to="/login" class="btn-login">登录</router-link>
@@ -134,29 +133,9 @@ export default {
   gap: 15px;
 }
 
-.user-profile-link {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 6px 12px;
-  border-radius: 20px;
-  background: #f5f5f5;
-  transition: all 0.2s;
-  text-decoration: none;
-}
-
-.user-profile-link:hover {
-  background: #e8f0fe;
-}
-
-.user-profile-link .user-name {
+.user-name {
   color: #333;
   font-size: 14px;
-  font-weight: 500;
-}
-
-.user-avatar {
-  font-size: 16px;
 }
 
 .btn-login {

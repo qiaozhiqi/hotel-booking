@@ -498,39 +498,38 @@ func GenerateCancellationPolicyBySupplier(supplierCode string) CancellationPolic
 	
 	return policy
 }
-
+5
 type Favorite struct {
-	ID        int       `json:"id"`
-	UserID    int       `json:"user_id"`
-	HotelID   int       `json:"hotel_id"`
-	HotelName string    `json:"hotel_name"`
-	City      string    `json:"city"`
-	Address   string    `json:"address"`
-	Rating    float64   `json:"rating"`
-	ImageURL  string    `json:"image_url"`
-	PriceRange string   `json:"price_range"`
-	CreatedAt time.Time `json:"created_at"`
+	ID         int       `json:"id"`
+	UserID     int       `json:"user_id"`
+	HotelID    int       `json:"hotel_id"`
+	HotelName  string    `json:"hotel_name"`
+	City       string    `json:"city"`
+	Address    string    `json:"address"`
+	Rating     float64   `json:"rating"`
+	ImageURL   string    `json:"image_url"`
+	PriceRange string    `json:"price_range"`
+	CreatedAt  time.Time `json:"created_at"`
 }
 
 type Invoice struct {
-	ID             int       `json:"id"`
-	UserID         int       `json:"user_id"`
-	OrderID        int       `json:"order_id"`
-	OrderNo        string    `json:"order_no"`
-	InvoiceType    string    `json:"invoice_type"`
-	InvoiceTitle   string    `json:"invoice_title"`
-	TaxNumber      string    `json:"tax_number"`
-	BankName       string    `json:"bank_name"`
-	BankAccount    string    `json:"bank_account"`
-	Address        string    `json:"address"`
-	Phone          string    `json:"phone"`
-	Email          string    `json:"email"`
-	Amount         float64   `json:"amount"`
-	Status         string    `json:"status"`
-	InvoiceNo      string    `json:"invoice_no"`
-	InvoiceURL     string    `json:"invoice_url"`
-	CreatedAt      time.Time `json:"created_at"`
-	UpdatedAt      time.Time `json:"updated_at"`
+	ID           int       `json:"id"`
+	UserID       int       `json:"user_id"`
+	OrderID      int       `json:"order_id"`
+	OrderNo      string    `json:"order_no"`
+	InvoiceType  string    `json:"invoice_type"`
+	InvoiceTitle string    `json:"invoice_title"`
+	TaxNumber    string    `json:"tax_number"`
+	BankName     string    `json:"bank_name"`
+	BankAccount  string    `json:"bank_account"`
+	Address      string    `json:"address"`
+	Phone        string    `json:"phone"`
+	Email        string    `json:"email"`
+	Amount       float64   `json:"amount"`
+	Status       string    `json:"status"`
+	InvoiceNo    string    `json:"invoice_no"`
+	CreatedAt    time.Time `json:"created_at"`
+	UpdatedAt    time.Time `json:"updated_at"`
 }
 
 type CreateFavoriteRequest struct {
@@ -546,7 +545,7 @@ type CreateInvoiceRequest struct {
 	BankAccount  string `json:"bank_account"`
 	Address      string `json:"address"`
 	Phone        string `json:"phone"`
-	Email        string `json:"email" binding:"required"`
+	Email        string `json:"email"`
 }
 
 type FavoriteWithHotel struct {

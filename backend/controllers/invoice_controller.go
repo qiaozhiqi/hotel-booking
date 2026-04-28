@@ -27,53 +27,58 @@ func CreateInvoice(c *gin.Context) {
 		userID = 1
 	}
 
-	if req.InvoiceType != "personal" && req.InvoiceType != "company" {
-		c.JSON(http.StatusBadRequest, models.Response{
-			Code:    400,
-			Message: "发票类型错误，只能是 personal 或 company",
-		})
-		return
-	}
-
-	if req.InvoiceType == "company" && req.TaxNumber == "" {
-		c.JSON(http.StatusBadRequest, models.Response{
-			Code:    400,
-			Message: "企业发票需要提供税号",
-		})
-		return
-	}
-
 	db := database.GetDB()
 
-	var order models.Order
-	var totalAmount float64
+	var orderExists int
 	err = db.QueryRow(`
-		SELECT id, order_no, total_amount, status, hotel_name, room_name, check_in, check_out
-		FROM orders WHERE id = ? AND user_id = ?`, req.OrderID, userID).Scan(
-		&order.ID, &order.OrderNo, &totalAmount, &order.Status,
-		&order.HotelName, &order.RoomName, &order.CheckIn, &order.CheckOut)
-
+		SELECT COUNT(*) FROM orders 
+		WHERE id = ? AND user_id = ? AND status = 'confirmed'`,
+		req.OrderID, userID).Scan(&orderExists)
 	if err != nil {
-		if err == sql.ErrNoRows {
-			c.JSON(http.StatusNotFound, models.Response{
-				Code:    404,
-				Message: "订单不存在或不属于当前用户",
-			})
-			return
-		}
 		c.JSON(http.StatusInternalServerError, models.Response{
 			Code:    500,
-			Message: "查询订单信息失败",
+			Message: "检查订单状态失败",
 		})
 		return
 	}
 
-	var existingCount int
-	err = db.QueryRow("SELECT COUNT(*) FROM invoices WHERE order_id = ?", req.OrderID).Scan(&existingCount)
-	if err == nil && existingCount > 0 {
+	if orderExists == 0 {
+		c.JSON(http.StatusBadRequest, models.Response{
+			Code:    400,
+			Message: "订单不存在或无法开票",
+		})
+		return
+	}
+
+	var invoiceExists int
+	err = db.QueryRow(`
+		SELECT COUNT(*) FROM invoices WHERE order_id = ? AND user_id = ?`,
+		req.OrderID, userID).Scan(&invoiceExists)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, models.Response{
+			Code:    500,
+			Message: "检查发票状态失败",
+		})
+		return
+	}
+
+	if invoiceExists > 0 {
 		c.JSON(http.StatusBadRequest, models.Response{
 			Code:    400,
 			Message: "该订单已申请过发票",
+		})
+		return
+	}
+
+	var orderNo string
+	var amount float64
+	err = db.QueryRow(`
+		SELECT order_no, total_amount FROM orders WHERE id = ?`,
+		req.OrderID).Scan(&orderNo, &amount)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, models.Response{
+			Code:    500,
+			Message: "获取订单信息失败",
 		})
 		return
 	}
@@ -86,9 +91,9 @@ func CreateInvoice(c *gin.Context) {
 			tax_number, bank_name, bank_account, address, phone, 
 			email, amount, status, invoice_no
 		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-		userID, order.ID, order.OrderNo, req.InvoiceType, req.InvoiceTitle,
+		userID, req.OrderID, orderNo, req.InvoiceType, req.InvoiceTitle,
 		req.TaxNumber, req.BankName, req.BankAccount, req.Address, req.Phone,
-		req.Email, totalAmount, "pending", invoiceNo)
+		req.Email, amount, "pending", invoiceNo)
 
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, models.Response{
@@ -136,14 +141,15 @@ func GetInvoiceList(c *gin.Context) {
 	baseQuery := `
 		SELECT id, user_id, order_id, order_no, invoice_type, invoice_title, 
 		       tax_number, bank_name, bank_account, address, phone, 
-		       email, amount, status, invoice_no, invoice_url, created_at, updated_at
+		       email, amount, status, invoice_no, created_at, updated_at
 		FROM invoices WHERE user_id = ?`
 
 	countQuery := "SELECT COUNT(*) FROM invoices WHERE user_id = ?"
 
 	if status != "" {
-		baseQuery += " AND status = ? ORDER BY created_at DESC LIMIT ? OFFSET ?"
+		baseQuery += " AND status = ?"
 		countQuery += " AND status = ?"
+		baseQuery += " ORDER BY created_at DESC LIMIT ? OFFSET ?"
 		rows, _ = db.Query(baseQuery, userID, status, pageSize, offset)
 		countRows, _ = db.Query(countQuery, userID, status)
 	} else {
@@ -152,37 +158,26 @@ func GetInvoiceList(c *gin.Context) {
 		countRows, _ = db.Query(countQuery, userID)
 	}
 
+	if rows == nil {
+		c.JSON(http.StatusInternalServerError, models.Response{
+			Code:    500,
+			Message: "获取发票列表失败",
+		})
+		return
+	}
 	defer rows.Close()
 
 	var invoices []models.Invoice
 	for rows.Next() {
 		var invoice models.Invoice
-		var taxNumber, bankName, bankAccount, address, phone, invoiceURL sql.NullString
 		err := rows.Scan(
 			&invoice.ID, &invoice.UserID, &invoice.OrderID, &invoice.OrderNo,
-			&invoice.InvoiceType, &invoice.InvoiceTitle, &taxNumber, &bankName,
-			&bankAccount, &address, &phone, &invoice.Email, &invoice.Amount,
-			&invoice.Status, &invoice.InvoiceNo, &invoiceURL, &invoice.CreatedAt, &invoice.UpdatedAt)
+			&invoice.InvoiceType, &invoice.InvoiceTitle, &invoice.TaxNumber,
+			&invoice.BankName, &invoice.BankAccount, &invoice.Address, &invoice.Phone,
+			&invoice.Email, &invoice.Amount, &invoice.Status, &invoice.InvoiceNo,
+			&invoice.CreatedAt, &invoice.UpdatedAt)
 		if err != nil {
 			continue
-		}
-		if taxNumber.Valid {
-			invoice.TaxNumber = taxNumber.String
-		}
-		if bankName.Valid {
-			invoice.BankName = bankName.String
-		}
-		if bankAccount.Valid {
-			invoice.BankAccount = bankAccount.String
-		}
-		if address.Valid {
-			invoice.Address = address.String
-		}
-		if phone.Valid {
-			invoice.Phone = phone.String
-		}
-		if invoiceURL.Valid {
-			invoice.InvoiceURL = invoiceURL.String
 		}
 		invoices = append(invoices, invoice)
 	}
@@ -217,24 +212,24 @@ func GetInvoiceDetail(c *gin.Context) {
 		return
 	}
 
-	userID, err := strconv.Atoi(c.GetHeader("X-User-ID"))
-	if err != nil || userID == 0 {
+	userID, _ := strconv.Atoi(c.GetHeader("X-User-ID"))
+	if userID == 0 {
 		userID = 1
 	}
 
 	db := database.GetDB()
-
 	var invoice models.Invoice
-	var taxNumber, bankName, bankAccount, address, phone, invoiceURL sql.NullString
-	err = db.QueryRow(`
+
+	err := db.QueryRow(`
 		SELECT id, user_id, order_id, order_no, invoice_type, invoice_title, 
 		       tax_number, bank_name, bank_account, address, phone, 
-		       email, amount, status, invoice_no, invoice_url, created_at, updated_at
+		       email, amount, status, invoice_no, created_at, updated_at
 		FROM invoices WHERE id = ? AND user_id = ?`, invoiceID, userID).Scan(
 		&invoice.ID, &invoice.UserID, &invoice.OrderID, &invoice.OrderNo,
-		&invoice.InvoiceType, &invoice.InvoiceTitle, &taxNumber, &bankName,
-		&bankAccount, &address, &phone, &invoice.Email, &invoice.Amount,
-		&invoice.Status, &invoice.InvoiceNo, &invoiceURL, &invoice.CreatedAt, &invoice.UpdatedAt)
+		&invoice.InvoiceType, &invoice.InvoiceTitle, &invoice.TaxNumber,
+		&invoice.BankName, &invoice.BankAccount, &invoice.Address, &invoice.Phone,
+		&invoice.Email, &invoice.Amount, &invoice.Status, &invoice.InvoiceNo,
+		&invoice.CreatedAt, &invoice.UpdatedAt)
 
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -251,41 +246,10 @@ func GetInvoiceDetail(c *gin.Context) {
 		return
 	}
 
-	if taxNumber.Valid {
-		invoice.TaxNumber = taxNumber.String
-	}
-	if bankName.Valid {
-		invoice.BankName = bankName.String
-	}
-	if bankAccount.Valid {
-		invoice.BankAccount = bankAccount.String
-	}
-	if address.Valid {
-		invoice.Address = address.String
-	}
-	if phone.Valid {
-		invoice.Phone = phone.String
-	}
-	if invoiceURL.Valid {
-		invoice.InvoiceURL = invoiceURL.String
-	}
-
-	var order models.Order
-	db.QueryRow(`
-		SELECT id, order_no, hotel_name, room_name, check_in, check_out, total_amount, status
-		FROM orders WHERE id = ?`, invoice.OrderID).Scan(
-		&order.ID, &order.OrderNo, &order.HotelName, &order.RoomName,
-		&order.CheckIn, &order.CheckOut, &order.TotalAmount, &order.Status)
-
-	result := map[string]interface{}{
-		"invoice": invoice,
-		"order":   order,
-	}
-
 	c.JSON(http.StatusOK, models.Response{
 		Code:    200,
 		Message: "获取成功",
-		Data:    result,
+		Data:    invoice,
 	})
 }
 
@@ -298,17 +262,20 @@ func GetInvoiceableOrders(c *gin.Context) {
 	db := database.GetDB()
 
 	rows, err := db.Query(`
-		SELECT o.id, o.order_no, o.hotel_name, o.room_name, o.check_in, o.check_out, 
-		       o.total_amount, o.status, o.created_at
+		SELECT o.id, o.order_no, o.hotel_id, o.room_id, o.check_in, o.check_out,
+		       o.guest_name, o.total_amount, o.status, o.created_at,
+		       h.name as hotel_name, r.name as room_name
 		FROM orders o
-		LEFT JOIN invoices i ON o.id = i.order_id
-		WHERE o.user_id = ? AND i.id IS NULL AND o.status != 'cancelled'
-		ORDER BY o.created_at DESC`, userID)
+		LEFT JOIN hotels h ON o.hotel_id = h.id
+		LEFT JOIN rooms r ON o.room_id = r.id
+		WHERE o.user_id = ? AND o.status = 'confirmed' 
+		AND o.id NOT IN (SELECT order_id FROM invoices WHERE user_id = ?)
+		ORDER BY o.created_at DESC`, userID, userID)
 
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, models.Response{
 			Code:    500,
-			Message: "获取可开票订单列表失败",
+			Message: "获取可开票订单失败",
 		})
 		return
 	}
@@ -318,9 +285,10 @@ func GetInvoiceableOrders(c *gin.Context) {
 	for rows.Next() {
 		var order models.Order
 		err := rows.Scan(
-			&order.ID, &order.OrderNo, &order.HotelName, &order.RoomName,
-			&order.CheckIn, &order.CheckOut, &order.TotalAmount, &order.Status,
-			&order.CreatedAt)
+			&order.ID, &order.OrderNo, &order.HotelID, &order.RoomID,
+			&order.CheckIn, &order.CheckOut, &order.GuestName,
+			&order.TotalAmount, &order.Status, &order.CreatedAt,
+			&order.HotelName, &order.RoomName)
 		if err != nil {
 			continue
 		}

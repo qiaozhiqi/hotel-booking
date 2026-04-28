@@ -1,41 +1,42 @@
 <template>
   <div class="invoices-page">
     <div class="invoices-header">
-      <h1 class="page-title">开发票</h1>
-      <div class="tab-switcher">
-        <button 
-          class="tab-btn"
-          :class="{ active: currentTab === 'list' }"
-          @click="switchTab('list')"
-        >
-          我的发票
-        </button>
-        <button 
-          class="tab-btn"
-          :class="{ active: currentTab === 'create' }"
-          @click="switchTab('create')"
-        >
-          申请发票
-        </button>
-      </div>
+      <h1 class="page-title">发票管理</h1>
     </div>
 
-    <div v-if="currentTab === 'list'">
+    <div class="tab-nav">
+      <button 
+        class="tab-btn" 
+        :class="{ active: activeTab === 'list' }"
+        @click="activeTab = 'list'"
+      >
+        我的发票
+      </button>
+      <button 
+        class="tab-btn" 
+        :class="{ active: activeTab === 'create' }"
+        @click="activeTab = 'create'"
+      >
+        申请发票
+      </button>
+    </div>
+
+    <div v-if="activeTab === 'list'" class="invoice-list-section">
       <div v-if="loading" class="loading">
         <div class="loading-spinner"></div>
         <p>加载中...</p>
       </div>
 
       <template v-else-if="invoices.length > 0">
-        <div class="status-tabs">
+        <div class="status-filter">
           <button 
-            v-for="tab in statusTabs" 
-            :key="tab.value"
-            class="status-tab"
-            :class="{ active: selectedStatus === tab.value }"
-            @click="selectStatus(tab.value)"
+            v-for="filter in statusFilters" 
+            :key="filter.value"
+            class="filter-btn"
+            :class="{ active: selectedStatus === filter.value }"
+            @click="selectStatus(filter.value)"
           >
-            {{ tab.label }}
+            {{ filter.label }}
           </button>
         </div>
 
@@ -50,44 +51,38 @@
                 <span class="invoice-no">发票号：{{ invoice.invoice_no || '-' }}</span>
                 <span class="invoice-date">{{ formatDate(invoice.created_at) }}</span>
               </div>
-              <span class="invoice-status" :class="getInvoiceStatusClass(invoice.status)">
-                {{ getInvoiceStatusText(invoice.status) }}
+              <span class="invoice-status" :class="getStatusClass(invoice.status)">
+                {{ getStatusText(invoice.status) }}
               </span>
             </div>
 
             <div class="invoice-content">
-              <div class="invoice-detail">
+              <div class="invoice-details">
                 <div class="detail-row">
-                  <span class="detail-label">订单号</span>
+                  <span class="detail-label">订单号：</span>
                   <span class="detail-value">{{ invoice.order_no }}</span>
                 </div>
                 <div class="detail-row">
-                  <span class="detail-label">发票类型</span>
-                  <span class="detail-value">{{ getInvoiceTypeText(invoice.invoice_type) }}</span>
+                  <span class="detail-label">发票类型：</span>
+                  <span class="detail-value">{{ invoice.invoice_type === 'personal' ? '个人发票' : '企业发票' }}</span>
                 </div>
                 <div class="detail-row">
-                  <span class="detail-label">发票抬头</span>
+                  <span class="detail-label">发票抬头：</span>
                   <span class="detail-value">{{ invoice.invoice_title }}</span>
                 </div>
-                <div class="detail-row" v-if="invoice.tax_number">
-                  <span class="detail-label">税号</span>
+                <div v-if="invoice.tax_number" class="detail-row">
+                  <span class="detail-label">税号：</span>
                   <span class="detail-value">{{ invoice.tax_number }}</span>
                 </div>
-                <div class="detail-row">
-                  <span class="detail-label">开票金额</span>
-                  <span class="detail-value price">¥{{ invoice.amount }}</span>
-                </div>
-                <div class="detail-row">
-                  <span class="detail-label">接收邮箱</span>
+                <div v-if="invoice.email" class="detail-row">
+                  <span class="detail-label">接收邮箱：</span>
                   <span class="detail-value">{{ invoice.email }}</span>
                 </div>
               </div>
-            </div>
-
-            <div class="invoice-footer" v-if="invoice.invoice_url">
-              <a :href="invoice.invoice_url" target="_blank" class="btn-download">
-                下载发票
-              </a>
+              <div class="invoice-amount">
+                <span class="amount-label">开票金额</span>
+                <span class="amount-value">¥{{ invoice.amount }}</span>
+              </div>
             </div>
           </div>
         </div>
@@ -114,143 +109,86 @@
       <div v-else class="empty-state">
         <div class="empty-icon">📄</div>
         <p class="empty-text">暂无发票记录</p>
-        <button class="btn-create-invoice" @click="switchTab('create')">
-          去申请发票
-        </button>
+        <button class="btn-go-create" @click="activeTab = 'create'">去申请发票</button>
       </div>
     </div>
 
-    <div v-else>
-      <div class="create-invoice-form">
-        <div class="form-section">
-          <h3 class="section-title">选择订单</h3>
-          <div class="order-selector">
-            <label class="form-label">可开票订单</label>
-            <select 
-              v-model="invoiceForm.order_id" 
-              class="form-select"
-              @change="onOrderSelect"
-            >
-              <option :value="null">请选择订单</option>
-              <option v-for="order in availableOrders" :key="order.id" :value="order.id">
-                {{ order.order_no }} - {{ order.hotel_name }} - ¥{{ order.total_amount }}
-              </option>
-            </select>
-            <div v-if="selectedOrder" class="selected-order-info">
-              <div class="order-info-item">
-                <span class="info-label">酒店：</span>
-                <span class="info-value">{{ selectedOrder.hotel_name }}</span>
-              </div>
-              <div class="order-info-item">
-                <span class="info-label">房型：</span>
-                <span class="info-value">{{ selectedOrder.room_name }}</span>
-              </div>
-              <div class="order-info-item">
-                <span class="info-label">入住：</span>
-                <span class="info-value">{{ selectedOrder.check_in }} 至 {{ selectedOrder.check_out }}</span>
-              </div>
-              <div class="order-info-item">
-                <span class="info-label">金额：</span>
-                <span class="info-value price">¥{{ selectedOrder.total_amount }}</span>
-              </div>
-            </div>
+    <div v-else class="invoice-create-section">
+      <div class="create-form">
+        <h2 class="form-title">申请发票</h2>
+
+        <div class="form-group">
+          <label class="form-label">选择订单 <span class="required">*</span></label>
+          <select v-model="form.order_id" class="form-select" :disabled="loadingOrders">
+            <option value="">请选择需要开票的订单</option>
+            <option v-for="order in availableOrders" :key="order.id" :value="order.id">
+              {{ order.order_no }} - {{ order.hotel_name }} {{ order.room_name }} (¥{{ order.total_amount }})
+            </option>
+          </select>
+          <p v-if="!loadingOrders && availableOrders.length === 0" class="form-hint">暂无可开票的订单</p>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">发票类型 <span class="required">*</span></label>
+          <div class="type-radio-group">
+            <label class="type-radio">
+              <input type="radio" v-model="form.invoice_type" value="personal" />
+              <span class="radio-label">个人发票</span>
+            </label>
+            <label class="type-radio">
+              <input type="radio" v-model="form.invoice_type" value="company" />
+              <span class="radio-label">企业发票</span>
+            </label>
           </div>
         </div>
 
-        <div class="form-section">
-          <h3 class="section-title">发票信息</h3>
-          
+        <div class="form-group">
+          <label class="form-label">发票抬头 <span class="required">*</span></label>
+          <input 
+            v-model="form.invoice_title" 
+            type="text" 
+            class="form-input" 
+            :placeholder="form.invoice_type === 'personal' ? '请输入个人姓名' : '请输入企业名称'"
+          />
+        </div>
+
+        <template v-if="form.invoice_type === 'company'">
           <div class="form-group">
-            <label class="form-label required">发票类型</label>
-            <div class="type-selector">
-              <button 
-                class="type-btn"
-                :class="{ active: invoiceForm.invoice_type === 'personal' }"
-                @click="invoiceForm.invoice_type = 'personal'"
-              >
-                个人
-              </button>
-              <button 
-                class="type-btn"
-                :class="{ active: invoiceForm.invoice_type === 'company' }"
-                @click="invoiceForm.invoice_type = 'company'"
-              >
-                企业
-              </button>
-            </div>
+            <label class="form-label">税号 <span class="required">*</span></label>
+            <input v-model="form.tax_number" type="text" class="form-input" placeholder="请输入纳税人识别号" />
           </div>
 
-          <div class="form-group">
-            <label class="form-label required">发票抬头</label>
-            <input 
-              type="text" 
-              v-model="invoiceForm.invoice_title" 
-              class="form-input"
-              :placeholder="invoiceForm.invoice_type === 'personal' ? '请输入个人姓名' : '请输入企业名称'"
-            />
-          </div>
-
-          <div v-if="invoiceForm.invoice_type === 'company'" class="company-fields">
-            <div class="form-group">
-              <label class="form-label required">税号</label>
-              <input 
-                type="text" 
-                v-model="invoiceForm.tax_number" 
-                class="form-input"
-                placeholder="请输入纳税人识别号"
-              />
-            </div>
+          <div class="form-row">
             <div class="form-group">
               <label class="form-label">开户银行</label>
-              <input 
-                type="text" 
-                v-model="invoiceForm.bank_name" 
-                class="form-input"
-                placeholder="请输入开户银行名称（选填）"
-              />
+              <input v-model="form.bank_name" type="text" class="form-input" placeholder="请输入开户银行（选填）" />
             </div>
             <div class="form-group">
               <label class="form-label">银行账号</label>
-              <input 
-                type="text" 
-                v-model="invoiceForm.bank_account" 
-                class="form-input"
-                placeholder="请输入银行账号（选填）"
-              />
+              <input v-model="form.bank_account" type="text" class="form-input" placeholder="请输入银行账号（选填）" />
             </div>
+          </div>
+
+          <div class="form-row">
             <div class="form-group">
               <label class="form-label">企业地址</label>
-              <input 
-                type="text" 
-                v-model="invoiceForm.address" 
-                class="form-input"
-                placeholder="请输入企业地址（选填）"
-              />
+              <input v-model="form.address" type="text" class="form-input" placeholder="请输入企业地址（选填）" />
             </div>
             <div class="form-group">
               <label class="form-label">企业电话</label>
-              <input 
-                type="text" 
-                v-model="invoiceForm.phone" 
-                class="form-input"
-                placeholder="请输入企业电话（选填）"
-              />
+              <input v-model="form.phone" type="text" class="form-input" placeholder="请输入企业电话（选填）" />
             </div>
           </div>
+        </template>
 
-          <div class="form-group">
-            <label class="form-label required">接收邮箱</label>
-            <input 
-              type="email" 
-              v-model="invoiceForm.email" 
-              class="form-input"
-              placeholder="请输入接收发票的邮箱地址"
-            />
-          </div>
+        <div class="form-group">
+          <label class="form-label">接收邮箱</label>
+          <input v-model="form.email" type="email" class="form-input" placeholder="请输入发票接收邮箱（选填）" />
         </div>
 
         <div class="form-actions">
-          <button class="btn-submit" @click="submitInvoice" :disabled="submitting">
+          <button class="btn-cancel" @click="activeTab = 'list'">取消</button>
+          <button class="btn-submit" @click="submitInvoice" :disabled="submitting || !canSubmit">
             <span v-if="submitting">提交中...</span>
             <span v-else>提交申请</span>
           </button>
@@ -267,28 +205,18 @@ import { invoiceApi } from '../api'
 export default {
   name: 'Invoices',
   setup() {
-    const currentTab = ref('list')
-    const loading = ref(false)
+    const activeTab = ref('list')
+    const loading = ref(true)
+    const loadingOrders = ref(false)
+    const submitting = ref(false)
     const invoices = ref([])
+    const availableOrders = ref([])
     const total = ref(0)
     const page = ref(1)
     const pageSize = ref(10)
     const selectedStatus = ref('')
 
-    const statusTabs = [
-      { label: '全部', value: '' },
-      { label: '待处理', value: 'pending' },
-      { label: '已开具', value: 'issued' },
-      { label: '已作废', value: 'voided' }
-    ]
-
-    const totalPages = computed(() => Math.ceil(total.value / pageSize.value))
-
-    const availableOrders = ref([])
-    const selectedOrder = ref(null)
-    const submitting = ref(false)
-
-    const invoiceForm = ref({
+    const form = ref({
       order_id: null,
       invoice_type: 'personal',
       invoice_title: '',
@@ -300,26 +228,37 @@ export default {
       email: ''
     })
 
-    const getInvoiceStatusText = (status) => {
+    const statusFilters = [
+      { label: '全部', value: '' },
+      { label: '待开票', value: 'pending' },
+      { label: '已开票', value: 'issued' }
+    ]
+
+    const totalPages = computed(() => Math.ceil(total.value / pageSize.value))
+
+    const canSubmit = computed(() => {
+      if (!form.value.order_id) return false
+      if (!form.value.invoice_title) return false
+      if (form.value.invoice_type === 'company' && !form.value.tax_number) return false
+      return true
+    })
+
+    const getStatusText = (status) => {
       const map = {
-        'pending': '待处理',
-        'issued': '已开具',
-        'voided': '已作废'
+        'pending': '待开票',
+        'issued': '已开票',
+        'failed': '开票失败'
       }
       return map[status] || status
     }
 
-    const getInvoiceStatusClass = (status) => {
+    const getStatusClass = (status) => {
       const map = {
         'pending': 'status-pending',
         'issued': 'status-issued',
-        'voided': 'status-voided'
+        'failed': 'status-failed'
       }
       return map[status] || ''
-    }
-
-    const getInvoiceTypeText = (type) => {
-      return type === 'company' ? '企业发票' : '个人发票'
     }
 
     const formatDate = (dateStr) => {
@@ -327,18 +266,7 @@ export default {
       const year = date.getFullYear()
       const month = String(date.getMonth() + 1).padStart(2, '0')
       const day = String(date.getDate()).padStart(2, '0')
-      const hour = String(date.getHours()).padStart(2, '0')
-      const minute = String(date.getMinutes()).padStart(2, '0')
-      return `${year}-${month}-${day} ${hour}:${minute}`
-    }
-
-    const switchTab = (tab) => {
-      currentTab.value = tab
-      if (tab === 'list') {
-        loadInvoices()
-      } else {
-        loadAvailableOrders()
-      }
+      return `${year}-${month}-${day}`
     }
 
     const loadInvoices = async () => {
@@ -364,6 +292,7 @@ export default {
     }
 
     const loadAvailableOrders = async () => {
+      loadingOrders.value = true
       try {
         const res = await invoiceApi.getAvailableOrders()
         if (res.code === 200) {
@@ -371,6 +300,8 @@ export default {
         }
       } catch (error) {
         console.error('加载可开票订单失败:', error)
+      } finally {
+        loadingOrders.value = false
       }
     }
 
@@ -385,63 +316,26 @@ export default {
       loadInvoices()
     }
 
-    const onOrderSelect = () => {
-      if (invoiceForm.value.order_id) {
-        selectedOrder.value = availableOrders.value.find(o => o.id === invoiceForm.value.order_id)
-      } else {
-        selectedOrder.value = null
-      }
-    }
-
-    const validateForm = () => {
-      if (!invoiceForm.value.order_id) {
-        alert('请选择订单')
-        return false
-      }
-      if (!invoiceForm.value.invoice_title) {
-        alert('请输入发票抬头')
-        return false
-      }
-      if (invoiceForm.value.invoice_type === 'company' && !invoiceForm.value.tax_number) {
-        alert('企业发票请输入税号')
-        return false
-      }
-      if (!invoiceForm.value.email) {
-        alert('请输入接收邮箱')
-        return false
-      }
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-      if (!emailRegex.test(invoiceForm.value.email)) {
-        alert('请输入有效的邮箱地址')
-        return false
-      }
-      return true
-    }
-
     const submitInvoice = async () => {
-      if (!validateForm()) return
+      if (!canSubmit.value) return
 
       submitting.value = true
       try {
         const data = {
-          order_id: invoiceForm.value.order_id,
-          invoice_type: invoiceForm.value.invoice_type,
-          invoice_title: invoiceForm.value.invoice_title,
-          email: invoiceForm.value.email
+          order_id: form.value.order_id,
+          invoice_type: form.value.invoice_type,
+          invoice_title: form.value.invoice_title,
+          tax_number: form.value.tax_number,
+          bank_name: form.value.bank_name,
+          bank_account: form.value.bank_account,
+          address: form.value.address,
+          phone: form.value.phone,
+          email: form.value.email
         }
-        
-        if (invoiceForm.value.invoice_type === 'company') {
-          data.tax_number = invoiceForm.value.tax_number
-          data.bank_name = invoiceForm.value.bank_name
-          data.bank_account = invoiceForm.value.bank_account
-          data.address = invoiceForm.value.address
-          data.phone = invoiceForm.value.phone
-        }
-
         const res = await invoiceApi.create(data)
         if (res.code === 200) {
-          alert('发票申请成功！')
-          invoiceForm.value = {
+          alert('发票申请提交成功！')
+          form.value = {
             order_id: null,
             invoice_type: 'personal',
             invoice_title: '',
@@ -452,10 +346,10 @@ export default {
             phone: '',
             email: ''
           }
-          selectedOrder.value = null
-          switchTab('list')
+          activeTab.value = 'list'
+          loadInvoices()
         } else {
-          alert(res.message || '申请失败')
+          alert(res.message || '提交失败')
         }
       } catch (error) {
         console.error('提交发票申请失败:', error)
@@ -465,32 +359,40 @@ export default {
       }
     }
 
+    watch(activeTab, (newTab) => {
+      if (newTab === 'list') {
+        loadInvoices()
+      } else if (newTab === 'create') {
+        loadAvailableOrders()
+      }
+    })
+
     onMounted(() => {
-      loadInvoices()
+      if (activeTab.value === 'list') {
+        loadInvoices()
+      }
     })
 
     return {
-      currentTab,
+      activeTab,
       loading,
+      loadingOrders,
+      submitting,
       invoices,
+      availableOrders,
       total,
       page,
       pageSize,
       selectedStatus,
-      statusTabs,
+      form,
+      statusFilters,
       totalPages,
-      availableOrders,
-      selectedOrder,
-      submitting,
-      invoiceForm,
-      getInvoiceStatusText,
-      getInvoiceStatusClass,
-      getInvoiceTypeText,
+      canSubmit,
+      getStatusText,
+      getStatusClass,
       formatDate,
-      switchTab,
       selectStatus,
       changePage,
-      onOrderSelect,
       submitInvoice
     }
   }
@@ -506,38 +408,36 @@ export default {
 
 .invoices-header {
   margin-bottom: 24px;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 16px;
 }
 
 .page-title {
   font-size: 24px;
   font-weight: 600;
   color: #333;
-  margin: 0;
 }
 
-.tab-switcher {
+.tab-nav {
   display: flex;
   gap: 8px;
+  margin-bottom: 24px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid #eee;
 }
 
 .tab-btn {
-  padding: 8px 20px;
+  padding: 10px 24px;
   background: #f5f5f5;
   border: none;
-  border-radius: 8px;
-  font-size: 14px;
+  border-radius: 8px 8px 0 0;
+  font-size: 15px;
   color: #666;
   cursor: pointer;
   transition: all 0.2s;
 }
 
 .tab-btn:hover {
-  background: #e0e0e0;
+  background: #e8e8e8;
+  color: #333;
 }
 
 .tab-btn.active {
@@ -564,15 +464,14 @@ export default {
   to { transform: rotate(360deg); }
 }
 
-.status-tabs {
+.status-filter {
   display: flex;
   gap: 8px;
-  flex-wrap: wrap;
   margin-bottom: 20px;
 }
 
-.status-tab {
-  padding: 8px 20px;
+.filter-btn {
+  padding: 6px 16px;
   background: #fff;
   border: 1px solid #e0e0e0;
   border-radius: 20px;
@@ -582,12 +481,12 @@ export default {
   transition: all 0.2s;
 }
 
-.status-tab:hover {
+.filter-btn:hover {
   border-color: #1a73e8;
   color: #1a73e8;
 }
 
-.status-tab.active {
+.filter-btn.active {
   background: #1a73e8;
   border-color: #1a73e8;
   color: #fff;
@@ -648,62 +547,62 @@ export default {
   color: #155724;
 }
 
-.status-voided {
+.status-failed {
   background: #f8d7da;
   color: #721c24;
 }
 
 .invoice-content {
+  display: flex;
+  justify-content: space-between;
+  align-items: stretch;
   padding: 20px;
 }
 
-.invoice-detail {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 12px;
+.invoice-details {
+  flex: 1;
 }
 
 .detail-row {
   display: flex;
   gap: 8px;
+  margin-bottom: 8px;
+}
+
+.detail-row:last-child {
+  margin-bottom: 0;
 }
 
 .detail-label {
-  font-size: 13px;
+  font-size: 14px;
   color: #999;
-  min-width: 70px;
 }
 
 .detail-value {
-  font-size: 13px;
+  font-size: 14px;
   color: #333;
-  font-weight: 500;
 }
 
-.detail-value.price {
-  color: #e74c3c;
-  font-size: 15px;
-}
-
-.invoice-footer {
-  padding: 12px 20px;
-  border-top: 1px solid #eee;
+.invoice-amount {
+  text-align: right;
+  border-left: 1px solid #eee;
+  padding-left: 20px;
   display: flex;
-  justify-content: flex-end;
+  flex-direction: column;
+  justify-content: center;
 }
 
-.btn-download {
-  padding: 8px 20px;
-  background: #1a73e8;
-  color: #fff;
-  border-radius: 6px;
+.amount-label {
+  display: block;
   font-size: 13px;
-  text-decoration: none;
-  transition: background 0.2s;
+  color: #999;
+  margin-bottom: 4px;
 }
 
-.btn-download:hover {
-  background: #1557b0;
+.amount-value {
+  font-size: 22px;
+  font-weight: 600;
+  color: #e74c3c;
 }
 
 .empty-state {
@@ -722,7 +621,7 @@ export default {
   margin-bottom: 24px;
 }
 
-.btn-create-invoice {
+.btn-go-create {
   padding: 12px 32px;
   background: #1a73e8;
   color: #fff;
@@ -734,7 +633,7 @@ export default {
   transition: background 0.2s;
 }
 
-.btn-create-invoice:hover {
+.btn-go-create:hover {
   background: #1557b0;
 }
 
@@ -772,23 +671,23 @@ export default {
   color: #666;
 }
 
-.create-invoice-form {
+.invoice-create-section {
   background: #fff;
   border-radius: 12px;
-  padding: 24px;
+  padding: 30px;
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
 }
 
-.form-section {
-  margin-bottom: 32px;
+.create-form {
+  max-width: 600px;
 }
 
-.section-title {
-  font-size: 16px;
+.form-title {
+  font-size: 18px;
   font-weight: 600;
   color: #333;
-  margin-bottom: 16px;
-  padding-bottom: 12px;
+  margin-bottom: 24px;
+  padding-bottom: 16px;
   border-bottom: 1px solid #eee;
 }
 
@@ -799,15 +698,12 @@ export default {
 .form-label {
   display: block;
   font-size: 14px;
-  font-weight: 500;
   color: #333;
   margin-bottom: 8px;
 }
 
-.form-label.required::after {
-  content: '*';
+.required {
   color: #e74c3c;
-  margin-left: 4px;
 }
 
 .form-input,
@@ -828,91 +724,81 @@ export default {
   border-color: #1a73e8;
 }
 
-.form-input::placeholder,
-.form-select::placeholder {
-  color: #999;
-}
-
-.type-selector {
-  display: flex;
-  gap: 12px;
-}
-
-.type-btn {
-  flex: 1;
-  padding: 12px;
+.form-input:disabled,
+.form-select:disabled {
   background: #f5f5f5;
-  border: 2px solid transparent;
-  border-radius: 8px;
-  font-size: 14px;
-  color: #666;
-  cursor: pointer;
-  transition: all 0.2s;
+  cursor: not-allowed;
 }
 
-.type-btn:hover {
-  background: #e0e0e0;
-}
-
-.type-btn.active {
-  background: #e8f0fe;
-  border-color: #1a73e8;
-  color: #1a73e8;
-  font-weight: 500;
-}
-
-.selected-order-info {
-  margin-top: 12px;
-  padding: 16px;
-  background: #fafafa;
-  border-radius: 8px;
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 12px;
-}
-
-.order-info-item {
-  display: flex;
-  gap: 8px;
-}
-
-.info-label {
+.form-hint {
   font-size: 13px;
   color: #999;
+  margin-top: 8px;
 }
 
-.info-value {
-  font-size: 13px;
-  color: #333;
-  font-weight: 500;
+.form-row {
+  display: flex;
+  gap: 20px;
 }
 
-.info-value.price {
-  color: #e74c3c;
+.form-row .form-group {
+  flex: 1;
+}
+
+.type-radio-group {
+  display: flex;
+  gap: 30px;
+}
+
+.type-radio {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+}
+
+.type-radio input[type="radio"] {
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+}
+
+.radio-label {
   font-size: 14px;
-}
-
-.company-fields {
-  padding: 16px;
-  background: #fafafa;
-  border-radius: 8px;
-  margin-bottom: 20px;
+  color: #333;
 }
 
 .form-actions {
   display: flex;
+  gap: 16px;
   justify-content: flex-end;
-  padding-top: 16px;
+  margin-top: 32px;
+  padding-top: 24px;
   border-top: 1px solid #eee;
 }
 
-.btn-submit {
-  padding: 12px 40px;
-  background: #1a73e8;
-  color: #fff;
+.btn-cancel {
+  padding: 12px 32px;
+  background: #f5f5f5;
   border: none;
+  color: #666;
   border-radius: 8px;
-  font-size: 15px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.btn-cancel:hover {
+  background: #e8e8e8;
+}
+
+.btn-submit {
+  padding: 12px 32px;
+  background: #1a73e8;
+  border: none;
+  color: #fff;
+  border-radius: 8px;
+  font-size: 14px;
   font-weight: 500;
   cursor: pointer;
   transition: background 0.2s;
@@ -928,17 +814,9 @@ export default {
 }
 
 @media (max-width: 768px) {
-  .invoices-header {
+  .form-row {
     flex-direction: column;
-    align-items: flex-start;
-  }
-
-  .invoice-detail {
-    grid-template-columns: 1fr;
-  }
-
-  .selected-order-info {
-    grid-template-columns: 1fr;
+    gap: 0;
   }
 
   .invoice-header {
@@ -950,6 +828,33 @@ export default {
   .invoice-info {
     flex-direction: column;
     gap: 8px;
+  }
+
+  .invoice-content {
+    flex-direction: column;
+    gap: 20px;
+  }
+
+  .invoice-amount {
+    border-left: none;
+    border-top: 1px solid #eee;
+    padding-left: 0;
+    padding-top: 20px;
+    flex-direction: row;
+    align-items: center;
+    gap: 16px;
+  }
+
+  .amount-label {
+    margin-bottom: 0;
+  }
+
+  .form-actions {
+    flex-direction: column;
+  }
+
+  .form-actions button {
+    width: 100%;
   }
 }
 </style>

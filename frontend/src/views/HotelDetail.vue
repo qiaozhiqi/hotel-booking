@@ -13,14 +13,6 @@
         <div class="hotel-info-large">
           <h1 class="hotel-name-large">
             {{ hotel.name }}
-            <button 
-              class="favorite-btn" 
-              :class="{ 'favorited': isFavorited }"
-              @click="toggleFavorite"
-            >
-              <span class="favorite-icon">{{ isFavorited ? '❤️' : '🤍' }}</span>
-              <span class="favorite-text">{{ isFavorited ? '已收藏' : '收藏' }}</span>
-            </button>
             <span v-if="hotel.supplier" class="supplier-badge-large">
               <span class="supplier-icon-large">🏢</span>
               {{ getSupplierShortName(hotel.supplier.name) }}
@@ -61,6 +53,17 @@
           <div class="price-range-large">
             <span class="price-label">价格范围：</span>
             <span class="price-value-large">{{ hotel.price_range }}</span>
+          </div>
+          <div class="hotel-actions">
+            <button 
+              class="btn-favorite" 
+              :class="{ 'is-favorite': isFavorite }"
+              @click="toggleFavorite"
+              :disabled="togglingFavorite"
+            >
+              <span class="favorite-icon">{{ isFavorite ? '❤️' : '🤍' }}</span>
+              <span class="favorite-text">{{ isFavorite ? '已收藏' : '收藏' }}</span>
+            </button>
           </div>
         </div>
       </div>
@@ -499,7 +502,6 @@ export default {
     const loading = ref(true)
     const hotel = ref(null)
     const rooms = ref([])
-    const isFavorited = ref(false)
 
     const showBookingModal = ref(false)
     const selectedRoom = ref(null)
@@ -532,6 +534,51 @@ export default {
       guestPhone: '',
       guestID: null
     })
+
+    const isFavorite = ref(false)
+    const togglingFavorite = ref(false)
+
+    const checkFavoriteStatus = async () => {
+      try {
+        const hotelId = route.params.id
+        const res = await favoriteApi.checkStatus(hotelId)
+        if (res.code === 200) {
+          isFavorite.value = res.data.is_favorite
+        }
+      } catch (error) {
+        console.error('检查收藏状态失败:', error)
+      }
+    }
+
+    const toggleFavorite = async () => {
+      const user = localStorage.getItem('user')
+      if (!user) {
+        alert('请先登录')
+        router.push('/login')
+        return
+      }
+
+      togglingFavorite.value = true
+      try {
+        const hotelId = route.params.id
+        if (isFavorite.value) {
+          const res = await favoriteApi.delete(hotelId)
+          if (res.code === 200) {
+            isFavorite.value = false
+          }
+        } else {
+          const res = await favoriteApi.create({ hotel_id: parseInt(hotelId) })
+          if (res.code === 200) {
+            isFavorite.value = true
+          }
+        }
+      } catch (error) {
+        console.error('操作收藏失败:', error)
+        alert('操作失败，请稍后重试')
+      } finally {
+        togglingFavorite.value = false
+      }
+    }
 
     const nights = computed(() => {
       if (!bookingForm.value.checkIn || !bookingForm.value.checkOut) return 0
@@ -637,54 +684,12 @@ export default {
         if (res.code === 200) {
           hotel.value = res.data.hotel
           rooms.value = res.data.rooms || []
-          checkFavoriteStatus()
         }
+        checkFavoriteStatus()
       } catch (error) {
         console.error('加载酒店详情失败:', error)
       } finally {
         loading.value = false
-      }
-    }
-
-    const checkFavoriteStatus = async () => {
-      try {
-        const user = localStorage.getItem('user')
-        if (!user || !hotel.value) return
-        
-        const res = await favoriteApi.checkStatus(hotel.value.id)
-        if (res.code === 200) {
-          isFavorited.value = res.data.is_favorite
-        }
-      } catch (error) {
-        console.error('检查收藏状态失败:', error)
-      }
-    }
-
-    const toggleFavorite = async () => {
-      try {
-        const user = localStorage.getItem('user')
-        if (!user) {
-          alert('请先登录')
-          router.push('/login')
-          return
-        }
-
-        if (isFavorited.value) {
-          const res = await favoriteApi.delete(hotel.value.id)
-          if (res.code === 200) {
-            isFavorited.value = false
-          }
-        } else {
-          const res = await favoriteApi.create({
-            hotel_id: hotel.value.id
-          })
-          if (res.code === 200) {
-            isFavorited.value = true
-          }
-        }
-      } catch (error) {
-        console.error('收藏操作失败:', error)
-        alert('操作失败，请稍后重试')
       }
     }
 
@@ -1000,7 +1005,6 @@ export default {
       loading,
       hotel,
       rooms,
-      isFavorited,
       checkInDate,
       checkOutDate,
       currentMonth,
@@ -1040,6 +1044,8 @@ export default {
       openAddGuestForm,
       closeGuestForm,
       saveGuest,
+      isFavorite,
+      togglingFavorite,
       toggleFavorite
     }
   }
@@ -1110,43 +1116,6 @@ export default {
   align-items: center;
   gap: 12px;
   flex-wrap: wrap;
-}
-
-.favorite-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 14px;
-  background: #fff;
-  border: 1px solid #e0e0e0;
-  border-radius: 20px;
-  font-size: 14px;
-  color: #666;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.favorite-btn:hover {
-  border-color: #e74c3c;
-  color: #e74c3c;
-}
-
-.favorite-btn.favorited {
-  background: #fef2f2;
-  border-color: #fecaca;
-  color: #e74c3c;
-}
-
-.favorite-btn.favorited:hover {
-  background: #fee2e2;
-}
-
-.favorite-icon {
-  font-size: 16px;
-}
-
-.favorite-text {
-  font-weight: 500;
 }
 
 .supplier-badge-large {
@@ -1288,6 +1257,48 @@ export default {
   font-size: 24px;
   font-weight: 600;
   color: #e74c3c;
+}
+
+.hotel-actions {
+  margin-top: 20px;
+}
+
+.btn-favorite {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 24px;
+  background: #fff;
+  border: 2px solid #e0e0e0;
+  border-radius: 8px;
+  font-size: 14px;
+  color: #666;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-favorite:hover:not(:disabled) {
+  border-color: #e74c3c;
+  color: #e74c3c;
+}
+
+.btn-favorite.is-favorite {
+  background: linear-gradient(135deg, #ffebee 0%, #ffcdd2 100%);
+  border-color: #e74c3c;
+  color: #e74c3c;
+}
+
+.btn-favorite:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.favorite-icon {
+  font-size: 18px;
+}
+
+.favorite-text {
+  font-weight: 500;
 }
 
 .date-filter-section {

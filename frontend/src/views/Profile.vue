@@ -1,148 +1,172 @@
 <template>
   <div class="profile-page">
-    <div class="profile-header">
-      <div class="user-info">
-        <div class="avatar">
+    <div class="profile-container">
+      <div class="user-card">
+        <div class="user-avatar">
           <span class="avatar-icon">👤</span>
         </div>
-        <div class="user-details">
-          <h2 class="user-name">{{ user?.username || '未登录' }}</h2>
-          <p class="user-email" v-if="user?.email">{{ user.email }}</p>
-          <p class="user-phone" v-if="user?.phone">{{ user.phone }}</p>
+        <div class="user-info">
+          <h2 class="user-name">{{ userInfo?.username || '用户' }}</h2>
+          <p class="user-email">{{ userInfo?.email || '未设置邮箱' }}</p>
         </div>
       </div>
-      <div class="user-stats">
-        <div class="stat-item">
-          <span class="stat-value">{{ stats.orders }}</span>
-          <span class="stat-label">订单</span>
-        </div>
-        <div class="stat-item">
-          <span class="stat-value">{{ stats.favorites }}</span>
-          <span class="stat-label">收藏</span>
-        </div>
-        <div class="stat-item">
-          <span class="stat-value">{{ stats.invoices }}</span>
-          <span class="stat-label">发票</span>
-        </div>
-      </div>
-    </div>
 
-    <div class="profile-menu">
       <div class="menu-section">
-        <h3 class="section-title">我的订单</h3>
-        <div class="menu-items">
+        <h3 class="section-title">我的服务</h3>
+        <div class="menu-grid">
           <router-link to="/orders" class="menu-item">
-            <span class="menu-icon">📋</span>
-            <span class="menu-text">全部订单</span>
+            <div class="menu-icon order-icon">
+              <span>📋</span>
+            </div>
+            <div class="menu-content">
+              <span class="menu-title">我的订单</span>
+              <span class="menu-desc" v-if="orderCount > 0">待处理 {{ orderCount }} 单</span>
+              <span class="menu-desc" v-else>暂无订单</span>
+            </div>
             <span class="menu-arrow">›</span>
           </router-link>
-        </div>
-      </div>
 
-      <div class="menu-section">
-        <h3 class="section-title">我的收藏</h3>
-        <div class="menu-items">
           <router-link to="/favorites" class="menu-item">
-            <span class="menu-icon">❤️</span>
-            <span class="menu-text">收藏酒店</span>
+            <div class="menu-icon favorite-icon">
+              <span>❤️</span>
+            </div>
+            <div class="menu-content">
+              <span class="menu-title">我的收藏</span>
+              <span class="menu-desc" v-if="favoriteCount > 0">已收藏 {{ favoriteCount }} 家</span>
+              <span class="menu-desc" v-else>暂无收藏</span>
+            </div>
             <span class="menu-arrow">›</span>
           </router-link>
-        </div>
-      </div>
 
-      <div class="menu-section">
-        <h3 class="section-title">发票管理</h3>
-        <div class="menu-items">
           <router-link to="/invoices" class="menu-item">
-            <span class="menu-icon">📄</span>
-            <span class="menu-text">开发票</span>
+            <div class="menu-icon invoice-icon">
+              <span>📄</span>
+            </div>
+            <div class="menu-content">
+              <span class="menu-title">发票管理</span>
+              <span class="menu-desc" v-if="invoiceCount > 0">待开票 {{ pendingInvoiceCount }} 张</span>
+              <span class="menu-desc" v-else>暂无发票</span>
+            </div>
             <span class="menu-arrow">›</span>
           </router-link>
         </div>
       </div>
 
-      <div class="menu-section">
-        <h3 class="section-title">账户设置</h3>
-        <div class="menu-items">
-          <div class="menu-item" @click="handleLogout" v-if="user">
-            <span class="menu-icon">🚪</span>
-            <span class="menu-text">退出登录</span>
-            <span class="menu-arrow">›</span>
+      <div class="quick-stats" v-if="showStats">
+        <h3 class="section-title">统计概览</h3>
+        <div class="stats-grid">
+          <div class="stat-item">
+            <div class="stat-value">{{ totalOrders }}</div>
+            <div class="stat-label">总订单数</div>
           </div>
-          <router-link to="/login" class="menu-item" v-else>
-            <span class="menu-icon">🔑</span>
-            <span class="menu-text">登录账户</span>
-            <span class="menu-arrow">›</span>
-          </router-link>
+          <div class="stat-item">
+            <div class="stat-value">{{ totalSpent }}</div>
+            <div class="stat-label">累计消费</div>
+          </div>
+          <div class="stat-item">
+            <div class="stat-value">{{ favoriteCount }}</div>
+            <div class="stat-label">收藏酒店</div>
+          </div>
         </div>
       </div>
-    </div>
-
-    <div v-if="!user" class="login-prompt">
-      <div class="prompt-icon">🔒</div>
-      <p class="prompt-text">您还未登录，请先登录以查看个人信息</p>
-      <router-link to="/login" class="btn-login">去登录</router-link>
     </div>
   </div>
 </template>
 
 <script>
-import { ref, computed, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
-import { orderApi, favoriteApi, invoiceApi, userApi } from '../api'
+import { ref, onMounted } from 'vue'
+import { userApi, orderApi, favoriteApi, invoiceApi } from '../api'
 
 export default {
   name: 'Profile',
   setup() {
-    const router = useRouter()
-    const user = ref(null)
-    const stats = ref({
-      orders: 0,
-      favorites: 0,
-      invoices: 0
-    })
+    const userInfo = ref(null)
+    const orderCount = ref(0)
+    const favoriteCount = ref(0)
+    const invoiceCount = ref(0)
+    const pendingInvoiceCount = ref(0)
+    const totalOrders = ref(0)
+    const totalSpent = ref('¥0')
+    const showStats = ref(false)
 
-    const loadUserInfo = () => {
-      const userData = localStorage.getItem('user')
-      if (userData) {
-        user.value = JSON.parse(userData)
-      }
-    }
-
-    const loadStats = async () => {
-      if (!user.value) return
-
+    const loadUserInfo = async () => {
       try {
-        const [ordersRes, favoritesRes, invoicesRes] = await Promise.all([
-          orderApi.getList({ page: 1, page_size: 1 }),
-          favoriteApi.getList({ page: 1, page_size: 1 }),
-          invoiceApi.getList({ page: 1, page_size: 1 })
-        ])
-
-        stats.value.orders = ordersRes.data?.total || 0
-        stats.value.favorites = favoritesRes.data?.total || 0
-        stats.value.invoices = invoicesRes.data?.total || 0
+        const user = localStorage.getItem('user')
+        if (user) {
+          userInfo.value = JSON.parse(user)
+        }
       } catch (error) {
-        console.error('加载统计数据失败:', error)
+        console.error('加载用户信息失败:', error)
       }
     }
 
-    const handleLogout = () => {
-      localStorage.removeItem('user')
-      user.value = null
-      window.dispatchEvent(new Event('logout'))
-      router.push('/')
+    const loadOrderStats = async () => {
+      try {
+        const params = { page: 1, page_size: 100 }
+        const res = await orderApi.getList(params)
+        if (res.code === 200) {
+          const orders = res.data.orders || []
+          totalOrders.value = res.data.total || 0
+          orderCount.value = orders.filter(o => 
+            o.status === 'pending' || o.status === 'confirmed'
+          ).length
+          
+          let total = 0
+          orders.forEach(o => {
+            total += o.total_amount || 0
+          })
+          totalSpent.value = `¥${total}`
+          showStats.value = true
+        }
+      } catch (error) {
+        console.error('加载订单统计失败:', error)
+      }
+    }
+
+    const loadFavoriteCount = async () => {
+      try {
+        const params = { page: 1, page_size: 1 }
+        const res = await favoriteApi.getList(params)
+        if (res.code === 200) {
+          favoriteCount.value = res.data.total || 0
+        }
+      } catch (error) {
+        console.error('加载收藏数量失败:', error)
+      }
+    }
+
+    const loadInvoiceCount = async () => {
+      try {
+        const params = { page: 1, page_size: 100 }
+        const res = await invoiceApi.getList(params)
+        if (res.code === 200) {
+          const invoices = res.data.invoices || []
+          invoiceCount.value = res.data.total || 0
+          pendingInvoiceCount.value = invoices.filter(i => 
+            i.status === 'pending'
+          ).length
+        }
+      } catch (error) {
+        console.error('加载发票数量失败:', error)
+      }
     }
 
     onMounted(() => {
       loadUserInfo()
-      loadStats()
+      loadOrderStats()
+      loadFavoriteCount()
+      loadInvoiceCount()
     })
 
     return {
-      user,
-      stats,
-      handleLogout
+      userInfo,
+      orderCount,
+      favoriteCount,
+      invoiceCount,
+      pendingInvoiceCount,
+      totalOrders,
+      totalSpent,
+      showStats
     }
   }
 }
@@ -155,25 +179,23 @@ export default {
   padding: 30px 20px;
 }
 
-.profile-header {
-  background: linear-gradient(135deg, #1a73e8 0%, #0d47a1 100%);
-  border-radius: 16px;
-  padding: 32px;
-  margin-bottom: 24px;
+.profile-container {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
-  flex-wrap: wrap;
+  flex-direction: column;
   gap: 24px;
 }
 
-.user-info {
+.user-card {
   display: flex;
   align-items: center;
   gap: 20px;
+  background: linear-gradient(135deg, #1a73e8 0%, #0d47a1 100%);
+  border-radius: 16px;
+  padding: 24px;
+  box-shadow: 0 4px 20px rgba(26, 115, 232, 0.3);
 }
 
-.avatar {
+.user-avatar {
   width: 80px;
   height: 80px;
   background: rgba(255, 255, 255, 0.2);
@@ -181,168 +203,164 @@ export default {
   display: flex;
   align-items: center;
   justify-content: center;
+  flex-shrink: 0;
 }
 
 .avatar-icon {
   font-size: 40px;
 }
 
-.user-details {
+.user-info {
   color: #fff;
 }
 
 .user-name {
   font-size: 24px;
   font-weight: 600;
-  margin: 0 0 8px 0;
-}
-
-.user-email,
-.user-phone {
-  font-size: 14px;
-  opacity: 0.8;
-  margin: 4px 0;
-}
-
-.user-stats {
-  display: flex;
-  gap: 32px;
-}
-
-.stat-item {
-  text-align: center;
-  color: #fff;
-}
-
-.stat-value {
-  display: block;
-  font-size: 32px;
-  font-weight: 700;
   margin-bottom: 4px;
 }
 
-.stat-label {
-  font-size: 13px;
+.user-email {
+  font-size: 14px;
   opacity: 0.8;
 }
 
-.profile-menu {
+.menu-section {
   background: #fff;
   border-radius: 12px;
+  padding: 24px;
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
-  overflow: hidden;
-}
-
-.menu-section {
-  padding: 16px 0;
-  border-bottom: 1px solid #f0f0f0;
-}
-
-.menu-section:last-child {
-  border-bottom: none;
 }
 
 .section-title {
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 600;
-  color: #999;
-  padding: 0 24px;
-  margin-bottom: 8px;
+  color: #333;
+  margin-bottom: 16px;
 }
 
-.menu-items {
+.menu-grid {
   display: flex;
   flex-direction: column;
+  gap: 12px;
 }
 
 .menu-item {
   display: flex;
   align-items: center;
-  padding: 16px 24px;
-  cursor: pointer;
-  transition: background 0.2s;
-  text-decoration: none;
-  color: #333;
+  gap: 16px;
+  padding: 16px;
+  background: #f8f9fa;
+  border-radius: 10px;
+  transition: all 0.2s;
 }
 
 .menu-item:hover {
-  background: #f8f9fa;
+  background: #e8f0fe;
+  transform: translateX(4px);
 }
 
 .menu-icon {
-  font-size: 24px;
-  margin-right: 16px;
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
 }
 
-.menu-text {
+.menu-icon span {
+  font-size: 24px;
+}
+
+.order-icon {
+  background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
+}
+
+.favorite-icon {
+  background: linear-gradient(135deg, #ffebee 0%, #ffcdd2 100%);
+}
+
+.invoice-icon {
+  background: linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%);
+}
+
+.menu-content {
   flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.menu-title {
   font-size: 15px;
-  font-weight: 500;
+  font-weight: 600;
+  color: #333;
+}
+
+.menu-desc {
+  font-size: 12px;
+  color: #999;
 }
 
 .menu-arrow {
-  font-size: 18px;
+  font-size: 20px;
   color: #ccc;
 }
 
-.login-prompt {
-  display: none;
-  text-align: center;
-  padding: 60px 20px;
+.quick-stats {
   background: #fff;
   border-radius: 12px;
-  margin-top: 24px;
+  padding: 24px;
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
 }
 
-.prompt-icon {
-  font-size: 64px;
-  margin-bottom: 16px;
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 20px;
 }
 
-.prompt-text {
-  font-size: 15px;
+.stat-item {
+  text-align: center;
+  padding: 16px;
+  background: #f8f9fa;
+  border-radius: 10px;
+}
+
+.stat-value {
+  font-size: 28px;
+  font-weight: 700;
+  color: #1a73e8;
+  margin-bottom: 4px;
+}
+
+.stat-label {
+  font-size: 13px;
   color: #666;
-  margin-bottom: 24px;
-}
-
-.btn-login {
-  display: inline-block;
-  padding: 12px 40px;
-  background: #1a73e8;
-  color: #fff;
-  border-radius: 8px;
-  font-size: 15px;
-  font-weight: 500;
-  text-decoration: none;
-  transition: background 0.2s;
-}
-
-.btn-login:hover {
-  background: #1557b0;
 }
 
 @media (max-width: 768px) {
-  .profile-header {
+  .user-card {
     flex-direction: column;
     text-align: center;
   }
 
-  .user-info {
-    flex-direction: column;
+  .stats-grid {
+    grid-template-columns: 1fr;
   }
 
-  .user-stats {
-    justify-content: center;
-    gap: 24px;
+  .stat-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    text-align: left;
   }
 
   .stat-value {
-    font-size: 24px;
-  }
-
-  .login-prompt {
-    display: block;
+    font-size: 22px;
+    margin-bottom: 0;
   }
 }
 </style>

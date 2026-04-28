@@ -16,32 +16,32 @@
           :key="favorite.id" 
           class="favorite-card"
         >
-          <router-link :to="`/hotel/${favorite.hotel_id}`" class="hotel-link">
-            <div class="hotel-image">
-              <img :src="favorite.image_url" :alt="favorite.hotel_name" />
-            </div>
-            <div class="hotel-info">
-              <h3 class="hotel-name">{{ favorite.hotel_name }}</h3>
-              <div class="hotel-location">
-                <span class="location-icon">📍</span>
-                <span>{{ favorite.city }} · {{ favorite.address }}</span>
+          <div class="favorite-image" @click="goToHotel(favorite.hotel_id)">
+            <img :src="favorite.image_url" :alt="favorite.hotel_name" />
+          </div>
+          <div class="favorite-info">
+            <h3 class="hotel-name" @click="goToHotel(favorite.hotel_id)">{{ favorite.hotel_name }}</h3>
+            <div class="hotel-meta">
+              <div class="meta-item">
+                <span class="meta-icon">📍</span>
+                <span class="meta-text">{{ favorite.city }} · {{ favorite.address }}</span>
               </div>
-              <div class="hotel-rating">
-                <span class="rating-star">⭐</span>
-                <span class="rating-value">{{ favorite.rating }}</span>
-              </div>
-              <div class="hotel-price">
-                <span class="price-range">{{ favorite.price_range }}</span>
+              <div class="meta-item">
+                <span class="meta-icon">⭐</span>
+                <span class="meta-text rating-high">{{ favorite.rating }} 分</span>
               </div>
             </div>
-          </router-link>
-          <button 
-            class="btn-remove-favorite"
-            @click="removeFavorite(favorite.hotel_id, favorite.hotel_name)"
-          >
-            <span class="remove-icon">❤️</span>
-            取消收藏
-          </button>
+            <div class="price-range">
+              <span class="price-label">价格范围：</span>
+              <span class="price-value">{{ favorite.price_range }}</span>
+            </div>
+          </div>
+          <div class="favorite-actions">
+            <button class="btn-remove" @click="removeFavorite(favorite)">
+              <span class="btn-icon">🗑️</span>
+              <span>取消收藏</span>
+            </button>
+          </div>
         </div>
       </div>
 
@@ -65,16 +65,16 @@
     </template>
 
     <div v-else class="empty-state">
-      <div class="empty-icon">💝</div>
+      <div class="empty-icon">❤️</div>
       <p class="empty-text">暂无收藏的酒店</p>
       <router-link to="/" class="btn-go-explore">去探索酒店</router-link>
     </div>
 
     <div v-if="showRemoveModal" class="modal-overlay" @click.self="closeRemoveModal">
       <div class="modal-content confirm-modal">
-        <div class="modal-icon">💔</div>
+        <div class="modal-icon">⚠️</div>
         <h3 class="modal-title">确认取消收藏？</h3>
-        <p class="modal-text">您确定要取消收藏 "{{ hotelToRemoveName }}" 吗？</p>
+        <p class="modal-text">取消后将从收藏列表中移除，您确定要取消收藏该酒店吗？</p>
         <div class="modal-actions">
           <button class="btn-secondary" @click="closeRemoveModal">再想想</button>
           <button class="btn-danger" @click="confirmRemove" :disabled="removing">
@@ -89,11 +89,13 @@
 
 <script>
 import { ref, computed, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
 import { favoriteApi } from '../api'
 
 export default {
   name: 'Favorites',
   setup() {
+    const router = useRouter()
     const loading = ref(true)
     const favorites = ref([])
     const total = ref(0)
@@ -101,8 +103,7 @@ export default {
     const pageSize = ref(10)
 
     const showRemoveModal = ref(false)
-    const hotelToRemoveId = ref(null)
-    const hotelToRemoveName = ref('')
+    const removingFavorite = ref(null)
     const removing = ref(false)
 
     const totalPages = computed(() => Math.ceil(total.value / pageSize.value))
@@ -126,24 +127,26 @@ export default {
       }
     }
 
-    const removeFavorite = (hotelId, hotelName) => {
-      hotelToRemoveId.value = hotelId
-      hotelToRemoveName.value = hotelName
+    const goToHotel = (hotelId) => {
+      router.push(`/hotel/${hotelId}`)
+    }
+
+    const removeFavorite = (favorite) => {
+      removingFavorite.value = favorite
       showRemoveModal.value = true
     }
 
     const closeRemoveModal = () => {
       showRemoveModal.value = false
-      hotelToRemoveId.value = null
-      hotelToRemoveName.value = ''
+      removingFavorite.value = null
     }
 
     const confirmRemove = async () => {
-      if (!hotelToRemoveId.value) return
-      
+      if (!removingFavorite.value) return
+
       removing.value = true
       try {
-        const res = await favoriteApi.delete(hotelToRemoveId.value)
+        const res = await favoriteApi.delete(removingFavorite.value.hotel_id)
         if (res.code === 200) {
           closeRemoveModal()
           loadFavorites()
@@ -152,7 +155,7 @@ export default {
         }
       } catch (error) {
         console.error('取消收藏失败:', error)
-        alert('取消收藏失败，请稍后重试')
+        alert('操作失败，请稍后重试')
       } finally {
         removing.value = false
       }
@@ -173,11 +176,11 @@ export default {
       total,
       page,
       pageSize,
-      totalPages,
       showRemoveModal,
-      hotelToRemoveId,
-      hotelToRemoveName,
+      removingFavorite,
       removing,
+      totalPages,
+      goToHotel,
       removeFavorite,
       closeRemoveModal,
       confirmRemove,
@@ -189,7 +192,7 @@ export default {
 
 <style scoped>
 .favorites-page {
-  max-width: 900px;
+  max-width: 1000px;
   margin: 0 auto;
   padding: 30px 20px;
 }
@@ -230,40 +233,41 @@ export default {
 }
 
 .favorite-card {
+  display: flex;
+  gap: 20px;
   background: #fff;
   border-radius: 12px;
-  overflow: hidden;
+  padding: 20px;
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
-  display: flex;
-  justify-content: space-between;
-  align-items: stretch;
+  transition: all 0.2s;
 }
 
-.hotel-link {
-  display: flex;
-  flex: 1;
-  text-decoration: none;
-  color: inherit;
+.favorite-card:hover {
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.12);
 }
 
-.hotel-image {
+.favorite-image {
   width: 200px;
-  min-width: 200px;
-  height: 150px;
+  height: 140px;
+  border-radius: 8px;
   overflow: hidden;
+  background: #f5f5f5;
+  flex-shrink: 0;
+  cursor: pointer;
+  transition: transform 0.2s;
 }
 
-.hotel-image img {
+.favorite-image:hover {
+  transform: scale(1.02);
+}
+
+.favorite-image img {
   width: 100%;
   height: 100%;
   object-fit: cover;
 }
 
-.hotel-info {
-  padding: 16px 20px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
+.favorite-info {
   flex: 1;
 }
 
@@ -271,70 +275,86 @@ export default {
   font-size: 18px;
   font-weight: 600;
   color: #333;
-  margin: 0;
+  margin-bottom: 12px;
+  cursor: pointer;
+  transition: color 0.2s;
 }
 
-.hotel-location {
-  font-size: 13px;
+.hotel-name:hover {
+  color: #1a73e8;
+}
+
+.hotel-meta {
+  display: flex;
+  gap: 24px;
+  margin-bottom: 12px;
+}
+
+.meta-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.meta-icon {
+  font-size: 16px;
+}
+
+.meta-text {
+  font-size: 14px;
   color: #666;
-  display: flex;
-  align-items: center;
-  gap: 4px;
 }
 
-.location-icon {
-  font-size: 14px;
-}
-
-.hotel-rating {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
-
-.rating-star {
-  font-size: 14px;
-}
-
-.rating-value {
-  font-size: 14px;
-  font-weight: 600;
+.meta-text.rating-high {
   color: #f59e0b;
-}
-
-.hotel-price {
-  margin-top: auto;
+  font-weight: 600;
 }
 
 .price-range {
-  font-size: 16px;
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.price-label {
+  font-size: 14px;
+  color: #999;
+}
+
+.price-value {
+  font-size: 20px;
   font-weight: 600;
   color: #e74c3c;
 }
 
-.btn-remove-favorite {
-  padding: 8px 20px;
+.favorite-actions {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: flex-end;
+}
+
+.btn-remove {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 20px;
   background: transparent;
   border: 1px solid #e74c3c;
   color: #e74c3c;
   border-radius: 6px;
-  font-size: 13px;
+  font-size: 14px;
   cursor: pointer;
   transition: all 0.2s;
-  margin: 16px;
-  align-self: flex-start;
-  display: flex;
-  align-items: center;
-  gap: 4px;
 }
 
-.btn-remove-favorite:hover {
+.btn-remove:hover {
   background: #e74c3c;
   color: #fff;
 }
 
-.remove-icon {
-  font-size: 14px;
+.btn-icon {
+  font-size: 16px;
 }
 
 .empty-state {
@@ -361,7 +381,6 @@ export default {
   border-radius: 8px;
   font-size: 15px;
   font-weight: 500;
-  text-decoration: none;
   transition: background 0.2s;
 }
 
@@ -491,22 +510,21 @@ export default {
 @media (max-width: 768px) {
   .favorite-card {
     flex-direction: column;
+    gap: 16px;
   }
 
-  .hotel-link {
-    flex-direction: column;
-  }
-
-  .hotel-image {
+  .favorite-image {
     width: 100%;
-    min-width: auto;
     height: 200px;
   }
 
-  .btn-remove-favorite {
-    margin: 16px;
-    align-self: stretch;
-    justify-content: center;
+  .favorite-actions {
+    align-items: flex-start;
+  }
+
+  .hotel-meta {
+    flex-direction: column;
+    gap: 8px;
   }
 }
 </style>
