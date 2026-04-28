@@ -8,9 +8,6 @@
         </div>
         <nav class="nav">
           <router-link to="/" class="nav-link" :class="{ active: $route.path === '/' }">首页</router-link>
-          <router-link to="/orders" class="nav-link" :class="{ active: $route.path === '/orders' }">我的订单</router-link>
-          <router-link to="/favorites" class="nav-link" :class="{ active: $route.path === '/favorites' }">我的收藏</router-link>
-          <router-link to="/invoices" class="nav-link" :class="{ active: $route.path === '/invoices' }">发票管理</router-link>
           <router-link to="/profile" class="nav-link" :class="{ active: $route.path === '/profile' }">个人中心</router-link>
         </nav>
         <div class="user-area">

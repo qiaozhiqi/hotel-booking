@@ -485,7 +485,7 @@
 </template>
 
 <script>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { hotelApi, orderApi, guestApi, favoriteApi } from '../api'
 
@@ -678,6 +678,7 @@ export default {
 
     const loadHotelDetail = async () => {
       loading.value = true
+      isFavorite.value = false
       try {
         const id = route.params.id
         const res = await hotelApi.getDetail(id)
@@ -998,6 +999,13 @@ export default {
     onMounted(() => {
       loadHotelDetail()
     })
+
+    watch(
+      () => route.params.id,
+      () => {
+        loadHotelDetail()
+      }
+    )
 
     return {
       today,
