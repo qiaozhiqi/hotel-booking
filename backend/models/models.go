@@ -498,7 +498,7 @@ func GenerateCancellationPolicyBySupplier(supplierCode string) CancellationPolic
 	
 	return policy
 }
-5
+
 type Favorite struct {
 	ID         int       `json:"id"`
 	UserID     int       `json:"user_id"`

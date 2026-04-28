@@ -1559,6 +1559,9 @@
         <nav class="nav">
           <a class="nav-link active" onclick="router.navigate('/')" id="nav-home">首页</a>
           <a class="nav-link" onclick="router.navigate('/orders')" id="nav-orders">我的订单</a>
+          <a class="nav-link" onclick="router.navigate('/favorites')" id="nav-favorites">我的收藏</a>
+          <a class="nav-link" onclick="router.navigate('/invoices')" id="nav-invoices">发票管理</a>
+          <a class="nav-link" onclick="router.navigate('/profile')" id="nav-profile">个人中心</a>
         </nav>
         <div class="user-area" id="user-area">
           <a class="btn-login" onclick="router.navigate('/login')">登录</a>
@@ -2066,6 +2069,82 @@
             </div>
           </div>
         `;
+      },
+
+      async favorites() {
+        updateNav('favorites');
+        const main = document.getElementById('main-content');
+
+        if (!state.user) {
+          router.navigate('/login');
+          return;
+        }
+
+        main.innerHTML = `
+          <div class="orders-header">
+            <h1 class="page-title">我的收藏</h1>
+          </div>
+          <div id="favorites-content">
+            <div class="loading">
+              <div class="loading-spinner"></div>
+              <p>加载中...</p>
+            </div>
+          </div>
+        `;
+
+        await loadFavorites();
+      },
+
+      async invoices() {
+        updateNav('invoices');
+        const main = document.getElementById('main-content');
+
+        if (!state.user) {
+          router.navigate('/login');
+          return;
+        }
+
+        main.innerHTML = `
+          <div class="orders-header">
+            <h1 class="page-title">发票管理</h1>
+            <div class="status-tabs" id="invoice-tabs">
+              <button class="status-tab active" onclick="switchInvoiceTab('list')">我的发票</button>
+              <button class="status-tab" onclick="switchInvoiceTab('apply')">申请发票</button>
+            </div>
+          </div>
+          <div id="invoices-content">
+            <div class="loading">
+              <div class="loading-spinner"></div>
+              <p>加载中...</p>
+            </div>
+          </div>
+        `;
+
+        await loadInvoices();
+      },
+
+      async profile() {
+        updateNav('profile');
+        const main = document.getElementById('main-content');
+
+        if (!state.user) {
+          router.navigate('/login');
+          return;
+        }
+
+        main.innerHTML = `
+          <div class="orders-header">
+            <h1 class="page-title">个人中心</h1>
+          </div>
+          <div id="profile-content">
+            <div class="loading">
+              <div class="loading-spinner"></div>
+              <p>加载中...</p>
+            </div>
+          </div>
+        `;
+
+        await loadProfile();
       }
     };
 
@@ -3368,6 +3447,424 @@
       }
     }
 
+    let invoiceTab = 'list';
+    let invoiceStatus = '';
+
+    async function loadFavorites() {
+      const content = document.getElementById('favorites-content');
+      try {
+        const params = new URLSearchParams({
+          page: 1,
+          page_size: 20
+        });
+
+        const res = await api.get(`/favorites?${params.toString()}`);
+        if (res.code === 200) {
+          state.favorites = res.data.favorites || [];
+          renderFavoriteList();
+        }
+      } catch (error) {
+        content.innerHTML = `
+          <div class="empty-state">
+            <div class="empty-icon">⚠️</div>
+            <p class="empty-text">加载失败，请稍后重试</p>
+          </div>
+        `;
+      }
+    }
+
+    function renderFavoriteList() {
+      const content = document.getElementById('favorites-content');
+
+      if (state.favorites.length === 0) {
+        content.innerHTML = `
+          <div class="empty-state">
+            <div class="empty-icon">❤️</div>
+            <p class="empty-text">暂无收藏的酒店</p>
+            <a class="btn-go-book" onclick="router.navigate('/')">去发现酒店</a>
+          </div>
+        `;
+        return;
+      }
+
+      content.innerHTML = `
+        <div class="hotel-list">
+          ${state.favorites.map(fav => {
+            const hotel = fav.hotel || fav;
+            return `
+            <div class="hotel-card" onclick="router.navigate('/hotel/${hotel.id}')">
+              <div class="hotel-image">
+                <img src="${hotel.image_url || hotel.main_image || 'https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=luxury%20hotel%20exterior%20modern%20architecture&image_size=square'}" alt="${hotel.name}">
+                <div class="hotel-rating">
+                  <span class="rating-value">${hotel.rating || 4.5}</span>
+                </div>
+              </div>
+              <div class="hotel-info">
+                <h3 class="hotel-name">${hotel.name}</h3>
+                <p class="hotel-location">
+                  <span>📍</span>
+                  <span>${hotel.location || hotel.address || '位置信息'}</span>
+                </p>
+                <div class="hotel-price">
+                  <span class="price-label">¥</span>
+                  <span class="price-value">${hotel.price || hotel.min_price || hotel.starting_price || 399}</span>
+                  <span class="price-label">起/晚</span>
+                </div>
+                <button class="btn-cancel-order" onclick="event.stopPropagation(); removeFavorite(${hotel.id})" style="margin-top: 12px;">
+                  取消收藏
+                </button>
+              </div>
+            </div>
+            `;
+          }).join('')}
+        </div>
+      `;
+    }
+
+    async function removeFavorite(hotelId) {
+      if (!confirm('确定要取消收藏该酒店吗？')) return;
+      try {
+        const res = await api.request(`/favorites/${hotelId}`, { method: 'DELETE' });
+        if (res.code === 200) {
+          showToast('已取消收藏', 'success');
+          loadFavorites();
+        } else {
+          showToast(res.message || '操作失败', 'error');
+        }
+      } catch (error) {
+        showToast('操作失败，请稍后重试', 'error');
+      }
+    }
+
+    async function toggleFavorite(hotelId) {
+      try {
+        const checkRes = await api.get(`/favorites/check/${hotelId}`);
+        const isFavorite = checkRes.code === 200 && checkRes.data.is_favorite;
+
+        if (isFavorite) {
+          const delRes = await api.request(`/favorites/${hotelId}`, { method: 'DELETE' });
+          if (delRes.code === 200) {
+            showToast('已取消收藏', 'success');
+            return false;
+          }
+        } else {
+          const addRes = await api.post('/favorites', { hotel_id: hotelId });
+          if (addRes.code === 200) {
+            showToast('收藏成功', 'success');
+            return true;
+          }
+        }
+        return null;
+      } catch (error) {
+        showToast('操作失败，请稍后重试', 'error');
+        return null;
+      }
+    }
+
+    async function checkFavoriteStatus(hotelId) {
+      try {
+        const res = await api.get(`/favorites/check/${hotelId}`);
+        if (res.code === 200) {
+          return res.data.is_favorite;
+        }
+      } catch (error) {
+        console.error('检查收藏状态失败:', error);
+      }
+      return false;
+    }
+
+    function switchInvoiceTab(tab) {
+      invoiceTab = tab;
+      document.querySelectorAll('#invoice-tabs .status-tab').forEach(t => {
+        t.classList.remove('active');
+      });
+      event.target.classList.add('active');
+      if (tab === 'list') {
+        loadInvoices();
+      } else {
+        renderApplyInvoiceForm();
+      }
+    }
+
+    async function loadInvoices() {
+      const content = document.getElementById('invoices-content');
+      try {
+        const params = new URLSearchParams({
+          page: 1,
+          page_size: 20
+        });
+        if (invoiceStatus) {
+          params.append('status', invoiceStatus);
+        }
+
+        const res = await api.get(`/invoices?${params.toString()}`);
+        if (res.code === 200) {
+          state.invoices = res.data.invoices || [];
+          renderInvoiceList();
+        }
+      } catch (error) {
+        content.innerHTML = `
+          <div class="empty-state">
+            <div class="empty-icon">⚠️</div>
+            <p class="empty-text">加载失败，请稍后重试</p>
+          </div>
+        `;
+      }
+    }
+
+    function renderInvoiceList() {
+      const content = document.getElementById('invoices-content');
+
+      if (state.invoices.length === 0) {
+        content.innerHTML = `
+          <div class="empty-state">
+            <div class="empty-icon">📄</div>
+            <p class="empty-text">暂无发票记录</p>
+            <button class="btn-go-book" onclick="switchInvoiceTab('apply')">申请发票</button>
+          </div>
+        `;
+        return;
+      }
+
+      content.innerHTML = `
+        <div class="orders-list">
+          ${state.invoices.map(inv => `
+            <div class="order-card">
+              <div class="order-header">
+                <div class="order-info">
+                  <span class="order-no">发票编号：${inv.invoice_no || inv.id}</span>
+                  <span class="order-date">申请时间：${formatDate(inv.created_at)}</span>
+                </div>
+                <span class="order-status ${inv.status === 'issued' ? 'status-done' : 'status-pending'}">
+                  ${inv.status === 'issued' ? '已开票' : '待开票'}
+                </span>
+              </div>
+              <div class="order-content">
+                <div class="hotel-info">
+                  <h3 class="hotel-name">${inv.invoice_title}</h3>
+                  <p class="room-name">发票类型：${inv.invoice_type === 'personal' ? '个人' : '企业'}</p>
+                  <div class="guest-info">
+                    <span class="guest-item">金额：¥${inv.amount}</span>
+                    ${inv.tax_no ? `<span class="guest-item">税号：${inv.tax_no}</span>` : ''}
+                  </div>
+                </div>
+              </div>
+            </div>
+          `).join('')}
+        </div>
+      `;
+    }
+
+    async function renderApplyInvoiceForm() {
+      const content = document.getElementById('invoices-content');
+      
+      try {
+        const ordersRes = await api.get('/invoices/orders/available');
+        const availableOrders = (ordersRes.code === 200 ? ordersRes.data.orders : null) || [];
+
+        content.innerHTML = `
+          <div class="login-page" style="min-height: auto; padding: 20px;">
+            <div class="login-container" style="max-width: 600px; width: 100%;">
+              <form class="login-form" id="invoice-form" onsubmit="handleApplyInvoice(event)">
+                <div class="form-group">
+                  <label class="form-label">选择订单</label>
+                  <select class="form-input" id="invoice-order-id" required>
+                    <option value="">请选择要开票的订单</option>
+                    ${availableOrders.map(ord => `
+                      <option value="${ord.id}">订单号: ${ord.order_no} - 金额: ¥${ord.total_amount}</option>
+                    `).join('')}
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label class="form-label">发票类型</label>
+                  <select class="form-input" id="invoice-type" onchange="toggleInvoiceFields()">
+                    <option value="personal">个人</option>
+                    <option value="company">企业</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label class="form-label">发票抬头</label>
+                  <input type="text" class="form-input" id="invoice-title" placeholder="请输入发票抬头" required>
+                </div>
+                <div class="form-group hidden" id="tax-no-group">
+                  <label class="form-label">纳税人识别号</label>
+                  <input type="text" class="form-input" id="invoice-tax-no" placeholder="请输入纳税人识别号">
+                </div>
+                <div class="form-group">
+                  <label class="form-label">开户银行（可选）</label>
+                  <input type="text" class="form-input" id="invoice-bank" placeholder="请输入开户银行">
+                </div>
+                <div class="form-group">
+                  <label class="form-label">银行账号（可选）</label>
+                  <input type="text" class="form-input" id="invoice-bank-account" placeholder="请输入银行账号">
+                </div>
+                <div class="form-group">
+                  <label class="form-label">备注（可选）</label>
+                  <input type="text" class="form-input" id="invoice-remark" placeholder="请输入备注">
+                </div>
+                <button type="submit" class="btn-submit">提交申请</button>
+              </form>
+            </div>
+          </div>
+        `;
+      } catch (error) {
+        content.innerHTML = `
+          <div class="empty-state">
+            <div class="empty-icon">⚠️</div>
+            <p class="empty-text">加载失败，请稍后重试</p>
+          </div>
+        `;
+      }
+    }
+
+    function toggleInvoiceFields() {
+      const type = document.getElementById('invoice-type').value;
+      const taxNoGroup = document.getElementById('tax-no-group');
+      if (type === 'company') {
+        taxNoGroup.classList.remove('hidden');
+      } else {
+        taxNoGroup.classList.add('hidden');
+      }
+    }
+
+    async function handleApplyInvoice(event) {
+      event.preventDefault();
+      const orderId = document.getElementById('invoice-order-id').value;
+      const invoiceType = document.getElementById('invoice-type').value;
+      const title = document.getElementById('invoice-title').value;
+      const taxNo = document.getElementById('invoice-tax-no').value;
+      const bank = document.getElementById('invoice-bank').value;
+      const bankAccount = document.getElementById('invoice-bank-account').value;
+      const remark = document.getElementById('invoice-remark').value;
+
+      if (!orderId || !title) {
+        showToast('请填写必要信息', 'error');
+        return;
+      }
+
+      if (invoiceType === 'company' && !taxNo) {
+        showToast('企业发票请填写纳税人识别号', 'error');
+        return;
+      }
+
+      try {
+        const data = {
+          order_id: parseInt(orderId),
+          invoice_type: invoiceType,
+          invoice_title: title,
+          tax_no: taxNo || null,
+          bank: bank || null,
+          bank_account: bankAccount || null,
+          remark: remark || null
+        };
+
+        const res = await api.post('/invoices', data);
+        if (res.code === 200) {
+          showToast('发票申请提交成功', 'success');
+          switchInvoiceTab('list');
+        } else {
+          showToast(res.message || '申请失败', 'error');
+        }
+      } catch (error) {
+        showToast('申请失败，请稍后重试', 'error');
+      }
+    }
+
+    async function loadProfile() {
+      const content = document.getElementById('profile-content');
+      
+      try {
+        const ordersRes = await api.get('/orders?page=1&page_size=100');
+        const orders = (ordersRes.code === 200 ? ordersRes.data.orders : null) || [];
+        
+        const favoritesRes = await api.get('/favorites?page=1&page_size=100');
+        const favorites = (favoritesRes.code === 200 ? favoritesRes.data.favorites : null) || [];
+        
+        const totalAmount = orders.reduce((sum, ord) => sum + (ord.total_amount || 0), 0);
+
+        renderProfile({
+          totalOrders: orders.length,
+          totalAmount: totalAmount,
+          totalFavorites: favorites.length
+        });
+      } catch (error) {
+        renderProfile({
+          totalOrders: 0,
+          totalAmount: 0,
+          totalFavorites: 0
+        });
+      }
+    }
+
+    function renderProfile(stats) {
+      const content = document.getElementById('profile-content');
+      const user = state.user || {};
+
+      content.innerHTML = `
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 24px; margin-bottom: 30px;">
+          <div style="background: linear-gradient(135deg, #1a73e8, #0d47a1); padding: 30px; border-radius: 16px; color: #fff;">
+            <div style="display: flex; align-items: center; gap: 20px; margin-bottom: 20px;">
+              <div style="width: 80px; height: 80px; background: rgba(255,255,255,0.2); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 36px;">
+                👤
+              </div>
+              <div>
+                <h3 style="font-size: 22px; margin-bottom: 4px;">${user.username || '用户'}</h3>
+                <p style="opacity: 0.8; font-size: 14px;">${user.email || user.phone || '欢迎回来'}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin-bottom: 30px;">
+          <div onclick="router.navigate('/orders')" style="background: #fff; padding: 24px; border-radius: 12px; text-align: center; cursor: pointer; box-shadow: 0 2px 8px rgba(0,0,0,0.08); transition: transform 0.2s;">
+            <div style="font-size: 36px; margin-bottom: 12px;">📋</div>
+            <div style="font-size: 28px; font-weight: 600; color: #1a73e8; margin-bottom: 4px;">${stats.totalOrders}</div>
+            <div style="font-size: 14px; color: #666;">总订单数</div>
+          </div>
+          <div style="background: #fff; padding: 24px; border-radius: 12px; text-align: center; box-shadow: 0 2px 8px rgba(0,0,0,0.08);">
+            <div style="font-size: 36px; margin-bottom: 12px;">💰</div>
+            <div style="font-size: 28px; font-weight: 600; color: #e74c3c; margin-bottom: 4px;">¥${stats.totalAmount}</div>
+            <div style="font-size: 14px; color: #666;">累计消费</div>
+          </div>
+          <div onclick="router.navigate('/favorites')" style="background: #fff; padding: 24px; border-radius: 12px; text-align: center; cursor: pointer; box-shadow: 0 2px 8px rgba(0,0,0,0.08); transition: transform 0.2s;">
+            <div style="font-size: 36px; margin-bottom: 12px;">❤️</div>
+            <div style="font-size: 28px; font-weight: 600; color: #f59e0b; margin-bottom: 4px;">${stats.totalFavorites}</div>
+            <div style="font-size: 14px; color: #666;">收藏酒店</div>
+          </div>
+        </div>
+
+        <div class="section-header" style="margin-bottom: 20px;">
+          <h3 class="section-title">快捷入口</h3>
+        </div>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px;">
+          <div onclick="router.navigate('/orders')" style="background: #fff; padding: 20px; border-radius: 12px; display: flex; align-items: center; gap: 16px; cursor: pointer; box-shadow: 0 2px 8px rgba(0,0,0,0.08); transition: all 0.2s;">
+            <div style="width: 48px; height: 48px; background: #dbeafe; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 24px;">📋</div>
+            <div>
+              <h4 style="font-size: 16px; font-weight: 600; color: #333; margin-bottom: 4px;">我的订单</h4>
+              <p style="font-size: 13px; color: #999;">查看和管理所有预订</p>
+            </div>
+            <div style="margin-left: auto; font-size: 20px; color: #ccc;">›</div>
+          </div>
+          <div onclick="router.navigate('/favorites')" style="background: #fff; padding: 20px; border-radius: 12px; display: flex; align-items: center; gap: 16px; cursor: pointer; box-shadow: 0 2px 8px rgba(0,0,0,0.08); transition: all 0.2s;">
+            <div style="width: 48px; height: 48px; background: #fef3c7; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 24px;">❤️</div>
+            <div>
+              <h4 style="font-size: 16px; font-weight: 600; color: #333; margin-bottom: 4px;">我的收藏</h4>
+              <p style="font-size: 13px; color: #999;">收藏的酒店列表</p>
+            </div>
+            <div style="margin-left: auto; font-size: 20px; color: #ccc;">›</div>
+          </div>
+          <div onclick="router.navigate('/invoices')" style="background: #fff; padding: 20px; border-radius: 12px; display: flex; align-items: center; gap: 16px; cursor: pointer; box-shadow: 0 2px 8px rgba(0,0,0,0.08); transition: all 0.2s;">
+            <div style="width: 48px; height: 48px; background: #d1fae5; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 24px;">📄</div>
+            <div>
+              <h4 style="font-size: 16px; font-weight: 600; color: #333; margin-bottom: 4px;">发票管理</h4>
+              <p style="font-size: 13px; color: #999;">申请和查看发票</p>
+            </div>
+            <div style="margin-left: auto; font-size: 20px; color: #ccc;">›</div>
+          </div>
+        </div>
+      `;
+    }
+
     function switchTab(tab) {
       const loginTab = document.getElementById('tab-login');
       const registerTab = document.getElementById('tab-register');
@@ -3440,7 +3937,10 @@
       routes: {
         '/': pages.home,
         '/login': pages.login,
-        '/orders': pages.orders
+        '/orders': pages.orders,
+        '/favorites': pages.favorites,
+        '/invoices': pages.invoices,
+        '/profile': pages.profile
       },
 
       getParams() {
@@ -3466,6 +3966,12 @@
           pages.login();
         } else if (path === '/orders') {
           pages.orders();
+        } else if (path === '/favorites') {
+          pages.favorites();
+        } else if (path === '/invoices') {
+          pages.invoices();
+        } else if (path === '/profile') {
+          pages.profile();
         } else if (path.startsWith('/hotel/')) {
           pages.hotelDetail();
         } else {
