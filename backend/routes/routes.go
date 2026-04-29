@@ -38,11 +38,19 @@ func SetupRouter() *gin.Engine {
 		api.GET("/hotels", controllers.GetHotelList)
 		api.GET("/hotels/:id", controllers.GetHotelDetail)
 		api.GET("/cities", controllers.GetCities)
+		api.GET("/filter-options", controllers.GetFilterOptions)
 
 		api.POST("/orders", controllers.CreateOrder)
 		api.GET("/orders", controllers.GetOrderList)
 		api.GET("/orders/:id", controllers.GetOrderDetail)
 		api.POST("/orders/:id/cancel", controllers.CancelOrder)
+
+		api.GET("/guests", controllers.GetGuestList)
+		api.GET("/guests/:id", controllers.GetGuestDetail)
+		api.POST("/guests", controllers.CreateGuest)
+		api.PUT("/guests/:id", controllers.UpdateGuest)
+		api.DELETE("/guests/:id", controllers.DeleteGuest)
+		api.POST("/guests/:id/default", controllers.SetDefaultGuest)
 
 		api.GET("/suppliers", controllers.GetSupplierList)
 		api.POST("/suppliers/:code/pull", controllers.PullSupplierData)
@@ -76,6 +84,16 @@ func SetupRouter() *gin.Engine {
 			mock.GET("/huazhu/hotels", controllers.MockHuazhuGetHotels)
 			mock.GET("/huazhu/hotels/:id", controllers.MockHuazhuGetHotelDetail)
 		}
+
+		api.POST("/favorites", controllers.CreateFavorite)
+		api.DELETE("/favorites/:hotel_id", controllers.DeleteFavorite)
+		api.GET("/favorites", controllers.GetFavoriteList)
+		api.GET("/favorites/check/:hotel_id", controllers.CheckFavoriteStatus)
+
+		api.POST("/invoices", controllers.CreateInvoice)
+		api.GET("/invoices", controllers.GetInvoiceList)
+		api.GET("/invoices/:id", controllers.GetInvoiceDetail)
+		api.GET("/invoices/orders/available", controllers.GetInvoiceableOrders)
 	}
 
 	return r

@@ -27,6 +27,38 @@ func CreateOrder(c *gin.Context) {
 		userID = 1
 	}
 
+	if req.GuestID > 0 {
+		db := database.GetDB()
+		var guestName, guestPhone string
+		err := db.QueryRow(`
+			SELECT name, phone FROM guests WHERE id = ? AND user_id = ?`,
+			req.GuestID, userID).Scan(&guestName, &guestPhone)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				c.JSON(http.StatusBadRequest, models.Response{
+					Code:    400,
+					Message: "选择的入住人不存在",
+				})
+				return
+			}
+			c.JSON(http.StatusInternalServerError, models.Response{
+				Code:    500,
+				Message: "查询入住人信息失败",
+			})
+			return
+		}
+		req.GuestName = guestName
+		req.GuestPhone = guestPhone
+	}
+
+	if req.GuestName == "" || req.GuestPhone == "" {
+		c.JSON(http.StatusBadRequest, models.Response{
+			Code:    400,
+			Message: "请提供入住人信息",
+		})
+		return
+	}
+
 	db := database.GetDB()
 
 	tx, err := db.Begin()
@@ -183,6 +215,20 @@ func GetOrderList(c *gin.Context) {
 		if err != nil {
 			continue
 		}
+		
+		var supplierCode string
+		err = db.QueryRow(`
+			SELECT s.code FROM hotels h 
+			LEFT JOIN suppliers s ON h.supplier_id = s.id 
+			WHERE h.id = ?`, order.HotelID).Scan(&supplierCode)
+		if err == nil && supplierCode != "" {
+			cancellationPolicy := models.GenerateCancellationPolicyBySupplier(supplierCode)
+			order.CancellationPolicy = &cancellationPolicy
+		} else {
+			cancellationPolicy := models.GenerateCancellationPolicy("default", order.ID)
+			order.CancellationPolicy = &cancellationPolicy
+		}
+		
 		orders = append(orders, order)
 	}
 
@@ -248,6 +294,19 @@ func GetOrderDetail(c *gin.Context) {
 			Message: "获取订单详情失败",
 		})
 		return
+	}
+
+	var supplierCode string
+	err = db.QueryRow(`
+		SELECT s.code FROM hotels h 
+		LEFT JOIN suppliers s ON h.supplier_id = s.id 
+		WHERE h.id = ?`, order.HotelID).Scan(&supplierCode)
+	if err == nil && supplierCode != "" {
+		cancellationPolicy := models.GenerateCancellationPolicyBySupplier(supplierCode)
+		order.CancellationPolicy = &cancellationPolicy
+	} else {
+		cancellationPolicy := models.GenerateCancellationPolicy("default", order.ID)
+		order.CancellationPolicy = &cancellationPolicy
 	}
 
 	c.JSON(http.StatusOK, models.Response{

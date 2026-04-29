@@ -40,7 +40,8 @@ export const userApi = {
 export const hotelApi = {
   getList: (params) => api.get('/hotels', { params }),
   getDetail: (id) => api.get(`/hotels/${id}`),
-  getCities: () => api.get('/cities')
+  getCities: () => api.get('/cities'),
+  getFilterOptions: () => api.get('/filter-options')
 }
 
 export const orderApi = {
@@ -48,6 +49,29 @@ export const orderApi = {
   getList: (params) => api.get('/orders', { params }),
   getDetail: (id) => api.get(`/orders/${id}`),
   cancel: (id) => api.post(`/orders/${id}/cancel`)
+}
+
+export const guestApi = {
+  getList: () => api.get('/guests'),
+  getDetail: (id) => api.get(`/guests/${id}`),
+  create: (data) => api.post('/guests', data),
+  update: (id, data) => api.put(`/guests/${id}`, data),
+  delete: (id) => api.delete(`/guests/${id}`),
+  setDefault: (id) => api.post(`/guests/${id}/default`)
+}
+
+export const favoriteApi = {
+  create: (data) => api.post('/favorites', data),
+  delete: (hotelId) => api.delete(`/favorites/${hotelId}`),
+  getList: (params) => api.get('/favorites', { params }),
+  checkStatus: (hotelId) => api.get(`/favorites/check/${hotelId}`)
+}
+
+export const invoiceApi = {
+  create: (data) => api.post('/invoices', data),
+  getList: (params) => api.get('/invoices', { params }),
+  getDetail: (id) => api.get(`/invoices/${id}`),
+  getAvailableOrders: () => api.get('/invoices/orders/available')
 }
 
 export default api

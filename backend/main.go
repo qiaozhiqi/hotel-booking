@@ -226,7 +226,60 @@ func initDatabaseTables() error {
 				UNIQUE(supplier_id, supplier_hotel_id)
 			)
 		`
-		
+
+		createGuestsSQL := `
+			CREATE TABLE IF NOT EXISTS guests (
+				id INTEGER PRIMARY KEY AUTOINCREMENT,
+				user_id INTEGER NOT NULL,
+				name TEXT NOT NULL,
+				phone TEXT NOT NULL,
+				id_type TEXT,
+				id_number TEXT,
+				is_default INTEGER DEFAULT 0,
+				created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+				updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+			)
+		`
+
+		createFavoritesSQL := `
+			CREATE TABLE IF NOT EXISTS favorites (
+				id INTEGER PRIMARY KEY AUTOINCREMENT,
+				user_id INTEGER NOT NULL,
+				hotel_id INTEGER NOT NULL,
+				hotel_name TEXT NOT NULL,
+				city TEXT,
+				address TEXT,
+				rating REAL DEFAULT 0.0,
+				image_url TEXT,
+				price_range TEXT,
+				created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+				UNIQUE(user_id, hotel_id)
+			)
+		`
+
+		createInvoicesSQL := `
+			CREATE TABLE IF NOT EXISTS invoices (
+				id INTEGER PRIMARY KEY AUTOINCREMENT,
+				user_id INTEGER NOT NULL,
+				order_id INTEGER NOT NULL,
+				order_no TEXT NOT NULL,
+				invoice_type TEXT NOT NULL,
+				invoice_title TEXT NOT NULL,
+				tax_number TEXT,
+				bank_name TEXT,
+				bank_account TEXT,
+				address TEXT,
+				phone TEXT,
+				email TEXT,
+				amount REAL NOT NULL DEFAULT 0.0,
+				status TEXT DEFAULT 'pending',
+				invoice_no TEXT,
+				created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+				updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+				UNIQUE(user_id, order_id)
+			)
+		`
+
 		db.Exec(createUsersSQL)
 		db.Exec(createHotelsSQL)
 		db.Exec(createRoomsSQL)
@@ -237,6 +290,9 @@ func initDatabaseTables() error {
 		db.Exec(createPriceInventorySQL)
 		db.Exec(createRoomPriceSummarySQL)
 		db.Exec(createHotelPriceSummarySQL)
+		db.Exec(createGuestsSQL)
+		db.Exec(createFavoritesSQL)
+		db.Exec(createInvoicesSQL)
 	} else {
 		createSuppliersSQL := `
 			CREATE TABLE IF NOT EXISTS suppliers (
@@ -496,6 +552,55 @@ func initTestUsers() error {
 	return nil
 }
 
+func initTestGuests() error {
+	db := database.GetDB()
+
+	testGuests := []struct {
+		userID    int
+		name      string
+		phone     string
+		idType    string
+		idNumber  string
+		isDefault bool
+	}{
+		{1, "张三", "13800138001", "身份证", "110101199001011234", true},
+		{1, "李四", "13900139002", "身份证", "110101199002022345", false},
+		{2, "王五", "13700137003", "护照", "E12345678", true},
+	}
+
+	for _, g := range testGuests {
+		var count int
+		err := db.QueryRow("SELECT COUNT(*) FROM guests WHERE user_id = ? AND name = ?", g.userID, g.name).Scan(&count)
+		if err != nil {
+			log.Printf("检查入住人 %s 失败: %v", g.name, err)
+			continue
+		}
+
+		if count == 0 {
+			if g.isDefault {
+				db.Exec("UPDATE guests SET is_default = 0 WHERE user_id = ?", g.userID)
+			}
+
+			isDefaultInt := 0
+			if g.isDefault {
+				isDefaultInt = 1
+			}
+
+			_, err = db.Exec(`
+				INSERT INTO guests (user_id, name, phone, id_type, id_number, is_default)
+				VALUES (?, ?, ?, ?, ?, ?)`,
+				g.userID, g.name, g.phone, g.idType, g.idNumber, isDefaultInt)
+			if err != nil {
+				log.Printf("初始化入住人 %s 失败: %v", g.name, err)
+			} else {
+				log.Printf("已注册测试入住人: %s", g.name)
+			}
+		}
+	}
+
+	return nil
+}
+
 func pullAndSyncSupplier(adapter suppliers.SupplierAdapter) (int, error) {
 	db := database.GetDB()
 	
@@ -639,6 +744,11 @@ func main() {
 	err = initTestUsers()
 	if err != nil {
 		log.Printf("测试用户初始化警告: %v", err)
+	}
+
+	err = initTestGuests()
+	if err != nil {
+		log.Printf("测试入住人初始化警告: %v", err)
 	}
 	
 	cfg := config.GetConfig()
