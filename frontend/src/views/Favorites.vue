@@ -88,7 +88,7 @@
 </template>
 
 <script>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { favoriteApi } from '../api'
 
@@ -146,10 +146,22 @@ export default {
 
       removing.value = true
       try {
-        const res = await favoriteApi.delete(removingFavorite.value.hotel_id)
+        const hotelId = removingFavorite.value.hotel_id
+        const res = await favoriteApi.delete(hotelId)
         if (res.code === 200) {
           closeRemoveModal()
-          loadFavorites()
+          
+          favorites.value = favorites.value.filter(f => f.hotel_id !== hotelId)
+          total.value = total.value - 1
+          
+          if (favorites.value.length === 0 && page.value > 1) {
+            page.value = page.value - 1
+            loadFavorites()
+          }
+          
+          window.dispatchEvent(new CustomEvent('favorite-changed', {
+            detail: { hotelId, isFavorite: false }
+          }))
         } else {
           alert(res.message || '取消收藏失败')
         }
@@ -166,8 +178,21 @@ export default {
       loadFavorites()
     }
 
+    const handleFavoriteChanged = (event) => {
+      const { hotelId, isFavorite: newStatus } = event.detail
+      if (newStatus) {
+        page.value = 1
+        loadFavorites()
+      }
+    }
+
     onMounted(() => {
       loadFavorites()
+      window.addEventListener('favorite-changed', handleFavoriteChanged)
+    })
+
+    onUnmounted(() => {
+      window.removeEventListener('favorite-changed', handleFavoriteChanged)
     })
 
     return {

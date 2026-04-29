@@ -485,7 +485,7 @@
 </template>
 
 <script>
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { hotelApi, orderApi, guestApi, favoriteApi } from '../api'
 
@@ -560,16 +560,22 @@ export default {
 
       togglingFavorite.value = true
       try {
-        const hotelId = route.params.id
+        const hotelId = parseInt(route.params.id)
         if (isFavorite.value) {
           const res = await favoriteApi.delete(hotelId)
           if (res.code === 200) {
             isFavorite.value = false
+            window.dispatchEvent(new CustomEvent('favorite-changed', {
+              detail: { hotelId, isFavorite: false }
+            }))
           }
         } else {
-          const res = await favoriteApi.create({ hotel_id: parseInt(hotelId) })
+          const res = await favoriteApi.create({ hotel_id: hotelId })
           if (res.code === 200) {
             isFavorite.value = true
+            window.dispatchEvent(new CustomEvent('favorite-changed', {
+              detail: { hotelId, isFavorite: true }
+            }))
           }
         }
       } catch (error) {
@@ -996,8 +1002,21 @@ export default {
       return icons[type] || 'ℹ️'
     }
 
+    const handleFavoriteChanged = (event) => {
+      const { hotelId, isFavorite: newStatus } = event.detail
+      const currentHotelId = parseInt(route.params.id)
+      if (hotelId === currentHotelId) {
+        isFavorite.value = newStatus
+      }
+    }
+
     onMounted(() => {
       loadHotelDetail()
+      window.addEventListener('favorite-changed', handleFavoriteChanged)
+    })
+
+    onUnmounted(() => {
+      window.removeEventListener('favorite-changed', handleFavoriteChanged)
     })
 
     watch(

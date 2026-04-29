@@ -3123,6 +3123,16 @@
     async function initFavoriteButton(hotelId) {
       const isFavorite = await checkFavoriteStatus(hotelId);
       updateFavoriteButtonUI(isFavorite);
+      
+      const handleFavoriteChanged = (event) => {
+        const { hotelId: changedHotelId, isFavorite: newStatus } = event.detail;
+        if (changedHotelId === hotelId) {
+          updateFavoriteButtonUI(newStatus);
+        }
+      };
+      
+      window.removeEventListener('favorite-changed', handleFavoriteChanged);
+      window.addEventListener('favorite-changed', handleFavoriteChanged);
     }
 
     function updateFavoriteButtonUI(isFavorite) {
@@ -3555,26 +3565,30 @@
         <div class="hotel-list">
           ${state.favorites.map(fav => {
             const hotel = fav.hotel || fav;
+            const hotelId = hotel.hotel_id || hotel.id;
+            const hotelName = hotel.hotel_name || hotel.name || '酒店';
+            const hotelCity = hotel.city || '';
+            const hotelAddress = hotel.location || hotel.address || '位置信息';
             return `
-            <div class="hotel-card" onclick="router.navigate('/hotel/${hotel.id}')">
+            <div class="hotel-card" onclick="router.navigate('/hotel/${hotelId}')">
               <div class="hotel-image">
-                <img src="${hotel.image_url || hotel.main_image || 'https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=luxury%20hotel%20exterior%20modern%20architecture&image_size=square'}" alt="${hotel.name}">
+                <img src="${hotel.image_url || hotel.main_image || 'https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=luxury%20hotel%20exterior%20modern%20architecture&image_size=square'}" alt="${hotelName}">
                 <div class="hotel-rating">
                   <span class="rating-value">${hotel.rating || 4.5}</span>
                 </div>
               </div>
               <div class="hotel-info">
-                <h3 class="hotel-name">${hotel.name}</h3>
+                <h3 class="hotel-name">${hotelName}</h3>
                 <p class="hotel-location">
                   <span>📍</span>
-                  <span>${hotel.location || hotel.address || '位置信息'}</span>
+                  <span>${hotelCity}${hotelCity && hotelAddress ? ' · ' : ''}${hotelAddress}</span>
                 </p>
                 <div class="hotel-price">
                   <span class="price-label">¥</span>
-                  <span class="price-value">${hotel.price || hotel.min_price || hotel.starting_price || 399}</span>
+                  <span class="price-value">${hotel.price || hotel.min_price || hotel.starting_price || hotel.price_range || '399'}</span>
                   <span class="price-label">起/晚</span>
                 </div>
-                <button class="btn-cancel-order" onclick="event.stopPropagation(); removeFavorite(${hotel.id})" style="margin-top: 12px;">
+                <button class="btn-cancel-order" onclick="event.stopPropagation(); removeFavorite(${hotelId})" style="margin-top: 12px;">
                   取消收藏
                 </button>
               </div>
@@ -3591,6 +3605,11 @@
         const res = await api.request(`/favorites/${hotelId}`, { method: 'DELETE' });
         if (res.code === 200) {
           showToast('已取消收藏', 'success');
+          
+          window.dispatchEvent(new CustomEvent('favorite-changed', {
+            detail: { hotelId: hotelId, isFavorite: false }
+          }));
+          
           loadFavorites();
         } else {
           showToast(res.message || '操作失败', 'error');
@@ -3609,12 +3628,18 @@
           const delRes = await api.request(`/favorites/${hotelId}`, { method: 'DELETE' });
           if (delRes.code === 200) {
             showToast('已取消收藏', 'success');
+            window.dispatchEvent(new CustomEvent('favorite-changed', {
+              detail: { hotelId: hotelId, isFavorite: false }
+            }));
             return false;
           }
         } else {
           const addRes = await api.post('/favorites', { hotel_id: hotelId });
           if (addRes.code === 200) {
             showToast('收藏成功', 'success');
+            window.dispatchEvent(new CustomEvent('favorite-changed', {
+              detail: { hotelId: hotelId, isFavorite: true }
+            }));
             return true;
           }
         }
